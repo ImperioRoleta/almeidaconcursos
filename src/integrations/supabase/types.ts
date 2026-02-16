@@ -142,8 +142,11 @@ export type Database = {
       payment_requests: {
         Row: {
           admin_notes: string | null
+          amount: number | null
           created_at: string
           id: string
+          mp_payment_id: string | null
+          mp_status: string | null
           plan: string
           proof_info: string | null
           reviewed_at: string | null
@@ -152,8 +155,11 @@ export type Database = {
         }
         Insert: {
           admin_notes?: string | null
+          amount?: number | null
           created_at?: string
           id?: string
+          mp_payment_id?: string | null
+          mp_status?: string | null
           plan?: string
           proof_info?: string | null
           reviewed_at?: string | null
@@ -162,8 +168,11 @@ export type Database = {
         }
         Update: {
           admin_notes?: string | null
+          amount?: number | null
           created_at?: string
           id?: string
+          mp_payment_id?: string | null
+          mp_status?: string | null
           plan?: string
           proof_info?: string | null
           reviewed_at?: string | null
@@ -494,6 +503,7 @@ export type Database = {
           created_at: string
           expire_date: string | null
           id: string
+          mp_payment_id: string | null
           plan: string
           start_date: string
           status: string
@@ -503,6 +513,7 @@ export type Database = {
           created_at?: string
           expire_date?: string | null
           id?: string
+          mp_payment_id?: string | null
           plan?: string
           start_date?: string
           status?: string
@@ -512,6 +523,7 @@ export type Database = {
           created_at?: string
           expire_date?: string | null
           id?: string
+          mp_payment_id?: string | null
           plan?: string
           start_date?: string
           status?: string
