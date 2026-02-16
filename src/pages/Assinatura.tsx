@@ -3,30 +3,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Crown, CheckCircle, Star, Zap, ChevronRight, Clock, QrCode, MessageSquare, Copy, ExternalLink } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Crown, CheckCircle, ChevronRight, Clock, Loader2, ExternalLink, ShieldCheck, Sparkles } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+
+const VITE_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const VITE_SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export default function Assinatura() {
   const { user } = useAuth();
   const [subscription, setSubscription] = useState<any>(null);
   const [settings, setSettings] = useState<Record<string, string>>({});
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [proofInfo, setProofInfo] = useState("");
-  const [sending, setSending] = useState(false);
   const [myRequests, setMyRequests] = useState<any[]>([]);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     if (!user) return;
-    const fetch = async () => {
+    const load = async () => {
       const [subRes, settingsRes, reqRes] = await Promise.all([
         supabase.from("subscriptions").select("*").eq("user_id", user.id).single(),
         supabase.from("platform_settings").select("*"),
-        supabase.from("payment_requests").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+        supabase.from("payment_requests").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
       ]);
       setSubscription(subRes.data);
       const map: Record<string, string> = {};
@@ -34,8 +33,20 @@ export default function Assinatura() {
       setSettings(map);
       setMyRequests(reqRes.data ?? []);
     };
-    fetch();
+    load();
   }, [user]);
+
+  // Handle return from Mercado Pago
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (status === "approved") {
+      toast.success("Pagamento aprovado! Seu acesso premium foi ativado.");
+    } else if (status === "pending") {
+      toast.info("Pagamento pendente. Seu acesso será liberado assim que confirmado.");
+    } else if (status === "rejected") {
+      toast.error("Pagamento não aprovado. Tente novamente.");
+    }
+  }, [searchParams]);
 
   const isExpired = subscription?.expire_date && new Date(subscription.expire_date) < new Date();
   const isPremium = subscription?.plan !== "gratuito" && subscription?.status === "active" && !isExpired;
@@ -43,28 +54,32 @@ export default function Assinatura() {
     ? Math.max(0, Math.ceil((new Date(subscription.expire_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null;
 
-  const submitRequest = async () => {
-    if (!user || !selectedPlan) return;
-    setSending(true);
-    const { error } = await supabase.from("payment_requests").insert({
-      user_id: user.id,
-      plan: selectedPlan,
-      proof_info: proofInfo || null,
-    });
-    setSending(false);
-    if (error) { toast.error("Erro ao enviar solicitação"); return; }
-    toast.success("Solicitação enviada! Aguarde a aprovação do administrador.");
-    setSelectedPlan(null);
-    setProofInfo("");
-    // Refresh requests
-    const { data } = await supabase.from("payment_requests").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5);
-    setMyRequests(data ?? []);
-  };
+  const handleCheckout = async (plan: string) => {
+    if (!user) return;
+    setLoadingPlan(plan);
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
 
-  const copyPix = () => {
-    if (settings.mp_pix_key) {
-      navigator.clipboard.writeText(settings.mp_pix_key);
-      toast.success("Chave PIX copiada!");
+      const res = await fetch(`${VITE_SUPABASE_URL}/functions/v1/mp-create-preference`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          apikey: VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ plan }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao criar pagamento");
+
+      // Redirect to Mercado Pago checkout
+      window.location.href = data.init_point;
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao processar pagamento");
+    } finally {
+      setLoadingPlan(null);
     }
   };
 
@@ -141,13 +156,13 @@ export default function Assinatura() {
           <h2 className="font-heading font-semibold text-lg">Faça upgrade para Premium</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {plans.map(plan => (
-              <Card key={plan.key} className={`glass-card-hover cursor-pointer transition-all ${plan.highlight ? "border-primary/30" : ""}`} onClick={() => setSelectedPlan(plan.key)}>
+              <Card key={plan.key} className={`glass-card-hover cursor-pointer transition-all relative ${plan.highlight ? "border-primary/30" : ""}`}>
                 {plan.badge && (
                   <div className="absolute top-3 right-3">
                     <Badge className="bg-accent/10 text-accent border-accent/20 text-[10px]">{plan.badge}</Badge>
                   </div>
                 )}
-                <CardContent className="p-6 space-y-4 relative">
+                <CardContent className="p-6 space-y-4">
                   <div>
                     <h3 className="font-heading font-bold text-lg">{plan.name}</h3>
                     <div className="flex items-baseline gap-1 mt-1">
@@ -164,21 +179,37 @@ export default function Assinatura() {
                       </li>
                     ))}
                   </ul>
-                  <Button className={`w-full ${plan.highlight ? "gradient-primary text-primary-foreground" : ""}`} variant={plan.highlight ? "default" : "outline"}>
-                    Assinar <ChevronRight className="w-4 h-4 ml-1" />
+                  <Button
+                    className={`w-full ${plan.highlight ? "gradient-primary text-primary-foreground" : ""}`}
+                    variant={plan.highlight ? "default" : "outline"}
+                    disabled={!!loadingPlan}
+                    onClick={() => handleCheckout(plan.key)}
+                  >
+                    {loadingPlan === plan.key ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processando...</>
+                    ) : (
+                      <><ExternalLink className="w-4 h-4 mr-2" /> Assinar com Mercado Pago</>
+                    )}
                   </Button>
                 </CardContent>
               </Card>
             ))}
           </div>
+
+          {/* Security badge */}
+          <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
+            <ShieldCheck className="w-4 h-4 text-primary" />
+            <span>Pagamento seguro via Mercado Pago • Ativação automática</span>
+            <Sparkles className="w-4 h-4 text-accent" />
+          </div>
         </>
       )}
 
-      {/* Previous requests */}
+      {/* Payment history */}
       {myRequests.length > 0 && (
         <Card className="glass-card">
           <CardHeader>
-            <CardTitle className="font-heading text-lg">Minhas Solicitações</CardTitle>
+            <CardTitle className="font-heading text-lg">Histórico de Pagamentos</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {myRequests.map(req => {
@@ -187,6 +218,7 @@ export default function Assinatura() {
                 <div key={req.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/50">
                   <div>
                     <span className="text-sm font-medium">{planLabels[req.plan] || req.plan}</span>
+                    {req.amount && <span className="text-xs text-muted-foreground ml-2">R$ {Number(req.amount).toFixed(2)}</span>}
                     <span className="text-xs text-muted-foreground ml-2">{new Date(req.created_at).toLocaleDateString("pt-BR")}</span>
                   </div>
                   <Badge className={st.color}>{st.label}</Badge>
@@ -196,74 +228,6 @@ export default function Assinatura() {
           </CardContent>
         </Card>
       )}
-
-      {/* Payment dialog */}
-      <Dialog open={!!selectedPlan} onOpenChange={() => setSelectedPlan(null)}>
-        <DialogContent className="bg-card border-border max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-heading">Assinar {planLabels[selectedPlan || ""] || ""}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-5">
-            {/* PIX info */}
-            {settings.mp_pix_key && (
-              <Card className="bg-muted/30 border-border/50">
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <QrCode className="w-5 h-5 text-primary" />
-                    <span className="font-heading font-semibold">Pagamento via PIX</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-sm bg-muted p-2 rounded font-mono">{settings.mp_pix_key}</code>
-                    <Button size="sm" variant="outline" onClick={copyPix}><Copy className="w-4 h-4" /></Button>
-                  </div>
-                  {settings.mp_pix_name && <p className="text-xs text-muted-foreground">Titular: {settings.mp_pix_name}</p>}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Payment link */}
-            {(selectedPlan === "premium_mensal" && settings.mp_payment_link_mensal) && (
-              <a href={settings.mp_payment_link_mensal} target="_blank" rel="noopener noreferrer">
-                <Button className="w-full gradient-primary text-primary-foreground gap-2">
-                  <ExternalLink className="w-4 h-4" /> Pagar via Mercado Pago
-                </Button>
-              </a>
-            )}
-            {(selectedPlan === "premium_anual" && settings.mp_payment_link_anual) && (
-              <a href={settings.mp_payment_link_anual} target="_blank" rel="noopener noreferrer">
-                <Button className="w-full gradient-primary text-primary-foreground gap-2">
-                  <ExternalLink className="w-4 h-4" /> Pagar via Mercado Pago
-                </Button>
-              </a>
-            )}
-
-            {/* WhatsApp */}
-            {settings.mp_whatsapp && (
-              <a href={`https://wa.me/${settings.mp_whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" className="w-full gap-2 mt-2">
-                  <MessageSquare className="w-4 h-4" /> WhatsApp: {settings.mp_whatsapp}
-                </Button>
-              </a>
-            )}
-
-            {/* Instructions */}
-            {settings.mp_instructions && (
-              <p className="text-sm text-muted-foreground bg-muted/20 p-3 rounded-lg">{settings.mp_instructions}</p>
-            )}
-
-            {/* Proof */}
-            <div className="space-y-2">
-              <Label>Informações do comprovante (opcional)</Label>
-              <Textarea value={proofInfo} onChange={e => setProofInfo(e.target.value)} placeholder="Código da transação, nome do pagador, etc." rows={2} />
-            </div>
-
-            <Button onClick={submitRequest} disabled={sending} className="w-full gradient-primary text-primary-foreground">
-              {sending ? "Enviando..." : "Confirmar Solicitação"}
-            </Button>
-            <p className="text-[11px] text-muted-foreground text-center">Seu acesso será liberado após confirmação do pagamento pelo administrador.</p>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
