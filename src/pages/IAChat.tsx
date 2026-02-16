@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageSquare, Send, Bot, User } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -96,8 +97,14 @@ export default function IAChat() {
           {messages.map((m, i) => (
             <div key={i} className={`flex gap-3 ${m.role === "user" ? "justify-end" : ""}`}>
               {m.role === "assistant" && <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><Bot className="w-4 h-4 text-primary" /></div>}
-              <div className={`max-w-[80%] rounded-xl p-3 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-card border border-border"}`}>
-                {m.content}
+              <div className={`max-w-[80%] rounded-xl p-4 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-card border border-border"}`}>
+                {m.role === "assistant" ? (
+                  <div className="prose prose-invert prose-sm max-w-none prose-p:mb-2 prose-p:leading-relaxed prose-headings:text-foreground prose-strong:text-foreground prose-li:mb-0.5">
+                    <ReactMarkdown>{m.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <span>{m.content}</span>
+                )}
               </div>
               {m.role === "user" && <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center shrink-0"><User className="w-4 h-4 text-gold" /></div>}
             </div>
