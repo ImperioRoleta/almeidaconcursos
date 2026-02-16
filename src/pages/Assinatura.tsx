@@ -49,7 +49,9 @@ export default function Assinatura() {
   }, [searchParams]);
 
   const isExpired = subscription?.expire_date && new Date(subscription.expire_date) < new Date();
-  const isPremium = subscription?.plan !== "gratuito" && subscription?.status === "active" && !isExpired;
+  const isPremium = subscription?.plan !== "gratuito" && subscription?.plan !== "premium_teste" && subscription?.plan !== "trial" && subscription?.status === "active" && !isExpired;
+  const isTrialPlan = (subscription?.plan === "premium_teste" || subscription?.plan === "trial") && subscription?.status === "active" && !isExpired;
+  const hasAccess = isPremium || isTrialPlan;
   const daysLeft = subscription?.expire_date
     ? Math.max(0, Math.ceil((new Date(subscription.expire_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null;
@@ -83,7 +85,7 @@ export default function Assinatura() {
     }
   };
 
-  const planLabels: Record<string, string> = { gratuito: "Gratuito", premium_mensal: "Premium Mensal", premium_anual: "Premium Anual" };
+  const planLabels: Record<string, string> = { gratuito: "Gratuito", premium_mensal: "Premium Mensal", premium_anual: "Premium Anual", premium_teste: "Premium Teste", trial: "Premium Teste" };
   const statusLabels: Record<string, { label: string; color: string }> = {
     pending: { label: "Aguardando", color: "bg-[hsl(38,92%,50%)]/10 text-[hsl(38,92%,50%)]" },
     approved: { label: "Aprovado", color: "bg-[hsl(142,71%,45%)]/10 text-[hsl(142,71%,45%)]" },
@@ -121,18 +123,20 @@ export default function Assinatura() {
       </div>
 
       {/* Current plan */}
-      <Card className={`glass-card ${isPremium ? "border-accent/30" : ""}`}>
+      <Card className={`glass-card ${hasAccess ? "border-accent/30" : ""}`}>
         <CardContent className="p-6">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isPremium ? "gradient-gold" : "bg-muted"}`}>
-                <Crown className={`w-7 h-7 ${isPremium ? "text-background" : "text-muted-foreground"}`} />
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${hasAccess ? "gradient-gold" : "bg-muted"}`}>
+                <Crown className={`w-7 h-7 ${hasAccess ? "text-background" : "text-muted-foreground"}`} />
               </div>
               <div>
                 <h2 className="font-heading font-bold text-xl">{planLabels[subscription?.plan] || "Gratuito"}</h2>
                 <div className="flex items-center gap-2 mt-1">
-                  {isPremium ? (
-                    <Badge className="bg-[hsl(142,71%,45%)]/10 text-[hsl(142,71%,45%)]">● Ativo</Badge>
+                  {hasAccess ? (
+                    <Badge className={isTrialPlan ? "bg-[hsl(280,70%,55%)]/10 text-[hsl(280,70%,55%)]" : "bg-[hsl(142,71%,45%)]/10 text-[hsl(142,71%,45%)]"}>
+                      ● {isTrialPlan ? "Premium Teste Ativo" : "Ativo"}
+                    </Badge>
                   ) : isExpired ? (
                     <Badge className="bg-destructive/10 text-destructive">● Expirado</Badge>
                   ) : (
@@ -151,7 +155,7 @@ export default function Assinatura() {
       </Card>
 
       {/* Upgrade plans */}
-      {!isPremium && (
+      {!hasAccess && (
         <>
           <h2 className="font-heading font-semibold text-lg">Faça upgrade para Premium</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

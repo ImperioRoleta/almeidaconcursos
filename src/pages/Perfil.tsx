@@ -65,6 +65,8 @@ export default function Perfil() {
     gratuito: "Gratuito",
     premium_mensal: "Premium Mensal",
     premium_anual: "Premium Anual",
+    premium_teste: "Premium Teste",
+    trial: "Premium Teste",
   };
 
   const statCards = [

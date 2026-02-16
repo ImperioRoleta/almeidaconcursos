@@ -133,13 +133,14 @@ export default function AdminUsuarios() {
   });
 
   const planLabels: Record<string, string> = {
-    gratuito: "Gratuito", premium_mensal: "Premium Mensal", premium_anual: "Premium Anual", trial: "Teste Grátis",
+    gratuito: "Gratuito", premium_mensal: "Premium Mensal", premium_anual: "Premium Anual", premium_teste: "Premium Teste", trial: "Premium Teste",
   };
   const planColors: Record<string, string> = {
     gratuito: "bg-muted text-muted-foreground",
     premium_mensal: "bg-primary/10 text-primary border-primary/30",
     premium_anual: "bg-accent/10 text-accent border-accent/30",
-    trial: "bg-[hsl(142,71%,45%)]/10 text-[hsl(142,71%,45%)] border-[hsl(142,71%,45%)]/30",
+    premium_teste: "bg-[hsl(280,70%,55%)]/10 text-[hsl(280,70%,55%)] border-[hsl(280,70%,55%)]/30",
+    trial: "bg-[hsl(280,70%,55%)]/10 text-[hsl(280,70%,55%)] border-[hsl(280,70%,55%)]/30",
   };
 
   const durationPresets = [
@@ -169,8 +170,8 @@ export default function AdminUsuarios() {
               <Button size="sm" className="gradient-primary text-primary-foreground gap-1" onClick={() => setShowGrantDialog(true)}>
                 <Crown className="w-4 h-4" /> Dar Assinatura
               </Button>
-              <Button size="sm" variant="outline" className="gap-1" onClick={() => setShowTrialDialog(true)}>
-                <Gift className="w-4 h-4" /> Teste Gratuito
+              <Button size="sm" variant="outline" className="gap-1 border-[hsl(280,70%,55%)]/30 text-[hsl(280,70%,55%)]" onClick={() => setShowTrialDialog(true)}>
+                <Gift className="w-4 h-4" /> Premium Teste
               </Button>
             </>
           )}
@@ -285,23 +286,25 @@ export default function AdminUsuarios() {
         </DialogContent>
       </Dialog>
 
-      {/* Free Trial Dialog */}
+      {/* Premium Teste Dialog */}
       <Dialog open={showTrialDialog} onOpenChange={setShowTrialDialog}>
         <DialogContent className="bg-card border-border max-w-md">
           <DialogHeader>
             <DialogTitle className="font-heading flex items-center gap-2">
-              <Gift className="w-5 h-5 text-[hsl(142,71%,45%)]" /> Teste Gratuito
+              <Gift className="w-5 h-5 text-[hsl(280,70%,55%)]" /> Premium Teste
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Conceder teste gratuito para <span className="font-semibold text-foreground">{selectedUsers.size}</span> usuário(s)
+              Conceder Premium Teste para <span className="font-semibold text-foreground">{selectedUsers.size}</span> usuário(s)
             </p>
+            <p className="text-xs text-muted-foreground">Acesso completo a todos os recursos premium durante o período.</p>
             <div className="space-y-2">
-              <Label>Duração do Teste</Label>
+              <Label>Duração do Premium Teste</Label>
               <Select value={trialDays} onValueChange={setTrialDays}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="1">1 dia</SelectItem>
                   <SelectItem value="3">3 dias</SelectItem>
                   <SelectItem value="7">7 dias</SelectItem>
                   <SelectItem value="14">14 dias</SelectItem>
@@ -309,8 +312,8 @@ export default function AdminUsuarios() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={grantTrial} disabled={granting} className="w-full bg-[hsl(142,71%,45%)] text-background hover:bg-[hsl(142,71%,40%)]">
-              {granting ? "Processando..." : `Conceder teste para ${selectedUsers.size} usuário(s)`}
+            <Button onClick={grantTrial} disabled={granting} className="w-full bg-[hsl(280,70%,55%)] text-white hover:bg-[hsl(280,70%,50%)]">
+              {granting ? "Processando..." : `Conceder Premium Teste para ${selectedUsers.size} usuário(s)`}
             </Button>
           </div>
         </DialogContent>
