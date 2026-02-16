@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Shield, BookOpen, Brain, Target, Award, ChevronRight, Trophy, Zap, Users, Star, CheckCircle, Clock, BarChart3, CalendarDays } from "lucide-react";
+import { Shield, BookOpen, Brain, Target, Award, ChevronRight, Trophy, Zap, Users, Star, CheckCircle, Clock, BarChart3, CalendarDays, Crown, Flame, Lock, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export default function Landing() {
   const features = [
@@ -9,7 +10,7 @@ export default function Landing() {
     { icon: Brain, title: "IA Personalizada", desc: "Assistente inteligente que explica, resolve e adapta o ensino ao seu nível." },
     { icon: Target, title: "Banco de Questões", desc: "Milhares de questões com correção automática, explicação detalhada e estatísticas." },
     { icon: CalendarDays, title: "Plano de Estudos IA", desc: "Plano de 30 dias gerado por IA, baseado no seu desempenho e pontos fracos." },
-    { icon: Trophy, title: "Ranking & Gamificação", desc: "Compita com outros alunos, suba de patente e mantenha sua sequência de dias." },
+    { icon: Trophy, title: "Ranking & Gamificação", desc: "Compita com outros alunos, suba de patente e conquiste badges exclusivos." },
     { icon: Zap, title: "Simulados Cronometrados", desc: "Simulados completos que reproduzem a experiência real da prova." },
   ];
 
@@ -18,6 +19,64 @@ export default function Landing() {
     { value: "30", label: "Dias de Plano", icon: CalendarDays },
     { value: "98%", label: "Aprovação", icon: Award },
     { value: "24/7", label: "IA Disponível", icon: Brain },
+  ];
+
+  const plans = [
+    {
+      name: "Gratuito",
+      price: "R$ 0",
+      period: "para sempre",
+      highlight: false,
+      badge: "",
+      features: [
+        "Acesso a aulas básicas",
+        "50 questões por mês",
+        "1 simulado por mês",
+        "Ranking público",
+        "Conquistas básicas",
+      ],
+      cta: "Começar Grátis",
+    },
+    {
+      name: "Premium Mensal",
+      price: "R$ 39,90",
+      period: "/mês",
+      highlight: true,
+      badge: "Mais Popular",
+      features: [
+        "Todas as aulas do edital",
+        "Questões ilimitadas",
+        "Simulados ilimitados",
+        "IA Assistente completa",
+        "Plano de estudos IA",
+        "Ranking completo",
+        "Todas as conquistas",
+        "Suporte prioritário",
+      ],
+      cta: "Assinar Premium",
+    },
+    {
+      name: "Premium Anual",
+      price: "R$ 29,90",
+      period: "/mês",
+      highlight: false,
+      badge: "Economia de 25%",
+      features: [
+        "Tudo do Premium Mensal",
+        "Desconto de 25%",
+        "Cobrado R$ 358,80/ano",
+        "Acesso antecipado a novidades",
+        "Certificado de conclusão",
+        "Grupo exclusivo",
+      ],
+      cta: "Assinar Anual",
+    },
+  ];
+
+  const testimonials = [
+    { name: "Carlos M.", role: "Aprovado 2025", text: "A plataforma foi essencial na minha aprovação. O plano de estudos por IA me ajudou demais!" },
+    { name: "Ana S.", role: "Estudante Premium", text: "Os simulados são idênticos à prova real. Me sinto muito mais preparada." },
+    { name: "Pedro L.", role: "Aprovado 2025", text: "O ranking me motivou a estudar mais. Competição saudável que faz diferença!" },
   ];
 
   return (
@@ -31,6 +90,11 @@ export default function Landing() {
             </div>
             <span className="font-heading font-bold text-lg">Elite PMBA</span>
           </div>
+          <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
+            <a href="#features" className="hover:text-foreground transition-colors">Recursos</a>
+            <a href="#plans" className="hover:text-foreground transition-colors">Planos</a>
+            <a href="#testimonials" className="hover:text-foreground transition-colors">Depoimentos</a>
+          </nav>
           <div className="flex gap-3">
             <Link to="/login">
               <Button variant="ghost" size="sm">Entrar</Button>
@@ -71,14 +135,13 @@ export default function Landing() {
                 Começar Agora — É Grátis <ChevronRight className="w-5 h-5" />
               </Button>
             </Link>
-            <Link to="/login">
+            <a href="#plans">
               <Button size="lg" variant="outline" className="h-14 px-8 text-lg">
-                Já tenho conta
+                Ver Planos
               </Button>
-            </Link>
+            </a>
           </div>
 
-          {/* Social proof */}
           <div className="flex flex-wrap justify-center gap-6 pt-4 text-sm text-muted-foreground animate-fade-in">
             {[
               { icon: Users, text: "500+ alunos ativos" },
@@ -110,7 +173,7 @@ export default function Landing() {
       </section>
 
       {/* Features */}
-      <section className="container mx-auto px-4 py-20">
+      <section id="features" className="container mx-auto px-4 py-20">
         <div className="text-center mb-12 space-y-3">
           <h2 className="font-heading text-3xl md:text-4xl font-bold">
             Tudo que você precisa para <span className="text-primary">passar</span>
@@ -131,6 +194,119 @@ export default function Landing() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      </section>
+
+      {/* Achievements preview */}
+      <section className="border-y border-border/50 bg-card/20">
+        <div className="container mx-auto px-4 py-16">
+          <div className="text-center mb-10 space-y-3">
+            <h2 className="font-heading text-3xl md:text-4xl font-bold flex items-center justify-center gap-3">
+              <Flame className="w-8 h-8 text-[hsl(25,95%,53%)]" />
+              Sistema de Conquistas
+            </h2>
+            <p className="text-muted-foreground max-w-lg mx-auto">Desbloqueie badges e acumule XP conforme evolui nos estudos.</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto stagger-children">
+            {[
+              { icon: Target, name: "Centurião", desc: "100 questões", color: "gradient-primary" },
+              { icon: Clock, name: "Maratonista", desc: "10h de estudo", color: "gradient-gold" },
+              { icon: Flame, name: "Semana Perfeita", desc: "7 dias seguidos", color: "gradient-success" },
+              { icon: Award, name: "Excelência", desc: "90% de acerto", color: "gradient-gold" },
+            ].map((b, i) => (
+              <div key={i} className="glass-card p-4 text-center space-y-3">
+                <div className={`w-14 h-14 rounded-2xl ${b.color} mx-auto flex items-center justify-center shadow-lg`}>
+                  <b.icon className="w-7 h-7 text-primary-foreground" />
+                </div>
+                <h4 className="font-heading font-semibold text-sm">{b.name}</h4>
+                <p className="text-xs text-muted-foreground">{b.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Plans */}
+      <section id="plans" className="container mx-auto px-4 py-20">
+        <div className="text-center mb-12 space-y-3">
+          <Badge className="bg-accent/10 text-accent border-accent/20 mb-2">
+            <Crown className="w-3 h-3 mr-1" /> Planos
+          </Badge>
+          <h2 className="font-heading text-3xl md:text-4xl font-bold">
+            Escolha o plano <span className="text-accent">ideal</span> para você
+          </h2>
+          <p className="text-muted-foreground max-w-lg mx-auto">
+            Comece grátis e faça upgrade quando quiser. Sem surpresas.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto stagger-children">
+          {plans.map((plan, i) => (
+            <Card key={i} className={`relative overflow-hidden transition-all duration-300 ${plan.highlight ? "border-primary/50 bg-primary/5 shadow-xl shadow-primary/10 scale-[1.02]" : "glass-card hover:border-border/80"}`}>
+              {plan.badge && (
+                <div className={`absolute top-4 right-4`}>
+                  <Badge className={plan.highlight ? "gradient-primary text-primary-foreground border-0" : "bg-accent/10 text-accent border-accent/20"}>
+                    {plan.badge}
+                  </Badge>
+                </div>
+              )}
+              <CardContent className="p-6 pt-8 space-y-6">
+                <div>
+                  <h3 className="font-heading font-bold text-xl">{plan.name}</h3>
+                  <div className="flex items-baseline gap-1 mt-2">
+                    <span className="font-heading font-extrabold text-4xl">{plan.price}</span>
+                    <span className="text-muted-foreground text-sm">{plan.period}</span>
+                  </div>
+                </div>
+
+                <ul className="space-y-3">
+                  {plan.features.map((f, j) => (
+                    <li key={j} className="flex items-center gap-2 text-sm">
+                      <CheckCircle className={`w-4 h-4 shrink-0 ${plan.highlight ? "text-primary" : "text-muted-foreground"}`} />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <Link to="/cadastro" className="block">
+                  <Button className={`w-full h-12 font-semibold ${plan.highlight ? "gradient-primary text-primary-foreground shadow-lg shadow-primary/20" : "variant-outline"}`} variant={plan.highlight ? "default" : "outline"}>
+                    {plan.cta}
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <p className="text-center text-sm text-muted-foreground mt-8">
+          💳 Pagamento seguro via Mercado Pago • Cancele quando quiser
+        </p>
+      </section>
+
+      {/* Testimonials */}
+      <section id="testimonials" className="border-t border-border/50 bg-card/20">
+        <div className="container mx-auto px-4 py-16">
+          <div className="text-center mb-10 space-y-3">
+            <h2 className="font-heading text-3xl md:text-4xl font-bold">
+              O que dizem nossos <span className="text-primary">alunos</span>
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto stagger-children">
+            {testimonials.map((t, i) => (
+              <Card key={i} className="glass-card-hover">
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex gap-1">
+                    {[...Array(5)].map((_, j) => <Star key={j} className="w-4 h-4 text-accent fill-accent" />)}
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">"{t.text}"</p>
+                  <div>
+                    <p className="font-heading font-semibold text-sm">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">{t.role}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </section>
 
