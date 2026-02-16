@@ -85,3 +85,32 @@
 .gradient-primary {
   background: linear-gradient(135deg, hsl(217, 99%, 50%), hsl(210, 80%, 55%));
 }
+
+/* Prose dark mode styling */
+.prose-invert {
+  --tw-prose-body: hsl(0, 0%, 75%);
+  --tw-prose-headings: hsl(0, 0%, 100%);
+  --tw-prose-lead: hsl(0, 0%, 63%);
+  --tw-prose-links: hsl(217, 99%, 60%);
+  --tw-prose-bold: hsl(0, 0%, 100%);
+  --tw-prose-counters: hsl(0, 0%, 63%);
+  --tw-prose-bullets: hsl(217, 99%, 50%);
+  --tw-prose-hr: hsl(0, 0%, 15%);
+  --tw-prose-quotes: hsl(0, 0%, 80%);
+  --tw-prose-quote-borders: hsl(217, 99%, 50%);
+  --tw-prose-code: hsl(43, 76%, 53%);
+  --tw-prose-pre-code: hsl(0, 0%, 80%);
+  --tw-prose-pre-bg: hsl(0, 0%, 7%);
+  --tw-prose-th-borders: hsl(0, 0%, 20%);
+  --tw-prose-td-borders: hsl(0, 0%, 15%);
+}
+
+/* Animation utilities */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out;
+}

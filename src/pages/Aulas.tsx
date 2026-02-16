@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, ChevronRight, CheckCircle } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { Link } from "react-router-dom";
 
 export default function Aulas() {
@@ -60,8 +61,19 @@ export default function Aulas() {
       <div className="space-y-6 animate-fade-in max-w-3xl">
         <Button variant="ghost" onClick={() => setSelectedLesson(null)} className="text-muted-foreground">← Voltar</Button>
         <h1 className="font-heading text-2xl font-bold">{selectedLesson.title}</h1>
-        <div className="prose prose-invert max-w-none glass-card p-6">
-          {selectedLesson.content || <p className="text-muted-foreground">Conteúdo da aula será adicionado em breve.</p>}
+        <div className="prose prose-invert prose-lg max-w-none glass-card p-8 leading-relaxed
+          prose-headings:font-heading prose-headings:text-foreground prose-headings:font-bold
+          prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg
+          prose-p:text-muted-foreground prose-p:mb-4 prose-p:leading-relaxed
+          prose-strong:text-foreground prose-strong:font-semibold
+          prose-li:text-muted-foreground prose-li:mb-1
+          prose-ul:mb-4 prose-ol:mb-4
+          prose-a:text-primary prose-a:underline">
+          {selectedLesson.content ? (
+            <ReactMarkdown>{selectedLesson.content}</ReactMarkdown>
+          ) : (
+            <p className="text-muted-foreground italic">Conteúdo da aula será adicionado em breve.</p>
+          )}
         </div>
         {!completedIds.has(selectedLesson.id) && (
           <Button onClick={() => markComplete(selectedLesson.id)} className="gradient-primary text-primary-foreground">
