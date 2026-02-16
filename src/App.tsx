@@ -22,6 +22,7 @@ import AdminConteudo from "./pages/admin/AdminConteudo";
 import AdminQuestoes from "./pages/admin/AdminQuestoes";
 import AdminIA from "./pages/admin/AdminIA";
 import AdminAssinaturas from "./pages/admin/AdminAssinaturas";
+import Conquistas from "./pages/Conquistas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/ia" element={<IAChat />} />
               <Route path="/plano" element={<PlanoEstudos />} />
               <Route path="/ranking" element={<Ranking />} />
+              <Route path="/conquistas" element={<Conquistas />} />
               <Route path="/perfil" element={<Perfil />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/usuarios" element={<AdminUsuarios />} />
