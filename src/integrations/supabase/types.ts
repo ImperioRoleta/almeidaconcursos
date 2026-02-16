@@ -712,6 +712,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_grant_subscription: {
+        Args: {
+          _admin_user_id: string
+          _duration_days: number
+          _plan: string
+          _target_user_ids: string[]
+        }
+        Returns: Json
+      }
+      admin_grant_trial: {
+        Args: {
+          _admin_user_id: string
+          _duration_days: number
+          _target_user_ids: string[]
+        }
+        Returns: Json
+      }
       get_leaderboard: {
         Args: never
         Returns: {

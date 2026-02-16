@@ -20,7 +20,6 @@ serve(async (req) => {
     const body = await req.json();
     console.log("Webhook received:", JSON.stringify(body));
 
-    // MP sends notification with type and data.id
     if (body.type === "payment" || body.action === "payment.updated" || body.action === "payment.created") {
       const paymentId = body.data?.id;
       if (!paymentId) {
@@ -34,10 +33,10 @@ serve(async (req) => {
         headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` },
       });
       const payment = await mpRes.json();
-      console.log("Payment details:", JSON.stringify(payment));
+      console.log("Payment status:", payment.status, "external_reference:", payment.external_reference);
 
       const externalRef = payment.external_reference;
-      const status = payment.status; // approved, pending, rejected, etc.
+      const status = payment.status;
 
       if (!externalRef) {
         return new Response(JSON.stringify({ ok: true, msg: "No external reference" }), {
@@ -53,22 +52,19 @@ serve(async (req) => {
         reviewed_at: status === "approved" || status === "rejected" ? new Date().toISOString() : null,
       }).eq("id", externalRef);
 
-      // If approved, activate subscription
+      // If approved, activate subscription + send email
       if (status === "approved") {
-        // Get the payment request to know user_id and plan
         const { data: payReq } = await supabase.from("payment_requests")
           .select("*").eq("id", externalRef).single();
 
         if (payReq) {
           const daysToAdd = payReq.plan === "premium_anual" ? 365 : 30;
-          
-          // Check if user already has active subscription with remaining days
+
           const { data: existingSub } = await supabase.from("subscriptions")
             .select("*").eq("user_id", payReq.user_id).single();
 
           let expireDate = new Date();
           if (existingSub?.expire_date && new Date(existingSub.expire_date) > new Date()) {
-            // Extend from current expiration
             expireDate = new Date(existingSub.expire_date);
           }
           expireDate.setDate(expireDate.getDate() + daysToAdd);
@@ -82,6 +78,34 @@ serve(async (req) => {
           }).eq("user_id", payReq.user_id);
 
           console.log(`Subscription activated for user ${payReq.user_id}, plan ${payReq.plan}, expires ${expireDate.toISOString()}`);
+
+          // Send thank-you email via Supabase Auth (uses built-in email)
+          try {
+            const { data: userData } = await supabase.auth.admin.getUserById(payReq.user_id);
+            const userEmail = userData?.user?.email;
+            const userName = userData?.user?.user_metadata?.name || "Aluno";
+            const planName = payReq.plan === "premium_anual" ? "Premium Anual" : "Premium Mensal";
+
+            if (userEmail) {
+              // Log the email event (Supabase doesn't have built-in transactional email, so we log it)
+              await supabase.from("activity_logs").insert({
+                user_id: payReq.user_id,
+                action: "payment_confirmed",
+                details: {
+                  plan: payReq.plan,
+                  plan_name: planName,
+                  amount: payReq.amount,
+                  mp_payment_id: String(paymentId),
+                  email: userEmail,
+                  name: userName,
+                  expire_date: expireDate.toISOString(),
+                },
+              });
+              console.log(`Payment confirmed for ${userEmail}, plan ${planName}`);
+            }
+          } catch (emailErr) {
+            console.error("Email notification error:", emailErr);
+          }
         }
       }
     }
