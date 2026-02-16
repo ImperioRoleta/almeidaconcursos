@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Target, BookOpen, Award, TrendingUp, BarChart3, Flame, Calendar } from "lucide-react";
+import { Clock, Target, BookOpen, Award, TrendingUp, BarChart3, Flame } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { StudyTimer } from "@/components/StudyTimer";
 
@@ -27,7 +27,6 @@ export default function Dashboard() {
       const answers = answersRes.data ?? [];
       const correct = answers.filter(a => a.is_correct).length;
 
-      // Calculate streak
       const sessionDays = new Set(sessions.map(s => new Date(s.started_at).toDateString()));
       const answerDays = new Set(answers.map(a => new Date(a.answered_at).toDateString()));
       const allDays = new Set([...sessionDays, ...answerDays]);
@@ -48,7 +47,6 @@ export default function Dashboard() {
         streak,
       });
 
-      // Weekly data from real sessions
       const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
       const weekData = days.map(() => 0);
       const now = new Date();
@@ -59,10 +57,8 @@ export default function Dashboard() {
       });
       setWeeklyData(days.map((day, i) => ({ day, horas: Math.round(weekData[i] * 10) / 10 })));
 
-      // Subject performance
       const subjectMap: Record<string, { name: string; correct: number; total: number }> = {};
       const subjects = subjectsRes.data ?? [];
-      // Get questions with subject_id for the answers
       const questionIds = [...new Set(answers.map(a => a.question_id))];
       if (questionIds.length > 0) {
         const { data: qs } = await supabase.from("questions").select("id, subject_id").in("id", questionIds);
@@ -95,39 +91,39 @@ export default function Dashboard() {
   ];
 
   const cards = [
-    { label: "Horas de Estudo", value: `${stats.hours}h`, icon: Clock, color: "text-primary" },
-    { label: "Taxa de Acerto", value: `${stats.accuracy}%`, icon: Target, color: "text-gold" },
-    { label: "Aulas Concluídas", value: stats.lessonsCompleted, icon: BookOpen, color: "text-highlight" },
-    { label: "Questões Respondidas", value: stats.questionsAnswered, icon: BarChart3, color: "text-green-400" },
-    { label: "Sequência de Dias", value: `${stats.streak} 🔥`, icon: Flame, color: "text-orange-400" },
+    { label: "Horas de Estudo", value: `${stats.hours}h`, icon: Clock, gradient: "from-primary/20 to-primary/5", iconColor: "text-primary" },
+    { label: "Taxa de Acerto", value: `${stats.accuracy}%`, icon: Target, gradient: "from-accent/20 to-accent/5", iconColor: "text-accent" },
+    { label: "Aulas Concluídas", value: stats.lessonsCompleted, icon: BookOpen, gradient: "from-[hsl(210,80%,55%)]/20 to-[hsl(210,80%,55%)]/5", iconColor: "text-[hsl(210,80%,55%)]" },
+    { label: "Questões", value: stats.questionsAnswered, icon: BarChart3, gradient: "from-[hsl(142,71%,45%)]/20 to-[hsl(142,71%,45%)]/5", iconColor: "text-[hsl(142,71%,45%)]" },
+    { label: "Sequência", value: `${stats.streak} 🔥`, icon: Flame, gradient: "from-[hsl(25,95%,53%)]/20 to-[hsl(25,95%,53%)]/5", iconColor: "text-[hsl(25,95%,53%)]" },
   ];
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Welcome header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-bold">Dashboard</h1>
+          <h1 className="font-heading text-2xl font-bold">
+            Olá, {profile?.name || "Aluno"} 👋
+          </h1>
           <p className="text-muted-foreground">
-            Seu progresso individual • <span className="text-gold font-medium">{levelName}</span>
+            Continue evoluindo • <span className="text-accent font-semibold">{levelName}</span>
           </p>
         </div>
       </div>
 
-      {/* Study Timer */}
       <StudyTimer />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 stagger-children">
         {cards.map((c, i) => (
-          <Card key={i} className="glass-card hover:border-primary/20 transition-colors">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <c.icon className={`w-6 h-6 ${c.color}`} />
+          <Card key={i} className="stat-card">
+            <CardContent className="p-4">
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${c.gradient} flex items-center justify-center mb-3`}>
+                <c.icon className={`w-5 h-5 ${c.iconColor}`} />
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">{c.label}</p>
-                <p className="text-xl font-heading font-bold font-mono">{c.value}</p>
-              </div>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{c.label}</p>
+              <p className="text-2xl font-heading font-bold font-mono mt-0.5">{c.value}</p>
             </CardContent>
           </Card>
         ))}
@@ -135,42 +131,57 @@ export default function Dashboard() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="font-heading text-lg flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" /> Estudo Semanal
+        <Card className="glass-card overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-heading text-base flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-primary" />
+              </div>
+              Estudo Semanal
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
+          <CardContent className="pb-4">
+            <ResponsiveContainer width="100%" height={200}>
               <BarChart data={weeklyData}>
-                <XAxis dataKey="day" stroke="hsl(0, 0%, 63%)" fontSize={12} />
-                <YAxis stroke="hsl(0, 0%, 63%)" fontSize={12} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(0, 0%, 7%)", border: "1px solid hsl(0, 0%, 15%)", borderRadius: "8px", color: "#fff" }} />
-                <Bar dataKey="horas" fill="hsl(217, 99%, 50%)" radius={[4, 4, 0, 0]} />
+                <XAxis dataKey="day" stroke="hsl(0, 0%, 40%)" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(0, 0%, 40%)" fontSize={11} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(0, 0%, 7%)",
+                    border: "1px solid hsl(0, 0%, 15%)",
+                    borderRadius: "8px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                />
+                <Bar dataKey="horas" fill="hsl(217, 99%, 50%)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="font-heading text-lg flex items-center gap-2">
-              <Award className="w-5 h-5 text-gold" /> Taxa de Acerto
+        <Card className="glass-card overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-heading text-base flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                <Award className="w-4 h-4 text-accent" />
+              </div>
+              Taxa de Acerto
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-center relative">
-            <ResponsiveContainer width="100%" height={220}>
+          <CardContent className="flex items-center justify-center relative pb-4">
+            <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={65} outerRadius={85} dataKey="value" startAngle={90} endAngle={-270}>
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={82} dataKey="value" startAngle={90} endAngle={-270} strokeWidth={0}>
                   {pieData.map((_, i) => (
                     <Cell key={i} fill={COLORS[i]} />
                   ))}
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-3xl font-heading font-bold font-mono text-primary">{stats.accuracy}%</span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">acerto</span>
             </div>
           </CardContent>
         </Card>
@@ -178,19 +189,30 @@ export default function Dashboard() {
 
       {/* Subject Performance */}
       {subjectStats.length > 0 && (
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="font-heading text-lg flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-highlight" /> Desempenho por Matéria
+        <Card className="glass-card overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="font-heading text-base flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                <BarChart3 className="w-4 h-4 text-accent" />
+              </div>
+              Desempenho por Matéria
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pb-4">
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={subjectStats} layout="vertical">
-                <XAxis type="number" domain={[0, 100]} stroke="hsl(0, 0%, 63%)" fontSize={12} />
-                <YAxis type="category" dataKey="name" stroke="hsl(0, 0%, 63%)" fontSize={11} width={100} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(0, 0%, 7%)", border: "1px solid hsl(0, 0%, 15%)", borderRadius: "8px", color: "#fff" }} />
-                <Bar dataKey="acerto" fill="hsl(43, 76%, 53%)" radius={[0, 4, 4, 0]} />
+                <XAxis type="number" domain={[0, 100]} stroke="hsl(0, 0%, 40%)" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis type="category" dataKey="name" stroke="hsl(0, 0%, 40%)" fontSize={11} width={100} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(0, 0%, 7%)",
+                    border: "1px solid hsl(0, 0%, 15%)",
+                    borderRadius: "8px",
+                    color: "#fff",
+                    fontSize: "12px",
+                  }}
+                />
+                <Bar dataKey="acerto" fill="hsl(43, 76%, 53%)" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

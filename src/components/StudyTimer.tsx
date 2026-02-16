@@ -1,72 +1,25 @@
-import { useState, useRef, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useStudyTimer } from "@/contexts/StudyTimerContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
-import { Play, Pause, Square, Timer } from "lucide-react";
+import { Play, Pause, Square, Timer, Zap } from "lucide-react";
 
 export function StudyTimer() {
-  const { user } = useAuth();
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<string>("");
-  const [seconds, setSeconds] = useState(0);
-  const [running, setRunning] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    supabase.from("subjects").select("id, name").order("order_index").then(({ data }) => setSubjects(data ?? []));
-  }, []);
-
-  useEffect(() => {
-    if (running) {
-      intervalRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running]);
-
-  const start = async () => {
-    if (!user) return;
-    const { data } = await supabase.from("study_sessions").insert({
-      user_id: user.id,
-      subject_id: selectedSubject || null,
-    }).select().single();
-    if (data) {
-      setSessionId(data.id);
-      setSeconds(0);
-      setRunning(true);
-      toast.success("Sessão de estudo iniciada!");
-    }
-  };
-
-  const pause = () => setRunning(!running);
-
-  const stop = async () => {
-    if (!sessionId) return;
-    setRunning(false);
-    await supabase.from("study_sessions").update({
-      ended_at: new Date().toISOString(),
-      duration_seconds: seconds,
-    }).eq("id", sessionId);
-    toast.success(`Sessão finalizada! ${formatTime(seconds)} de estudo.`);
-    setSessionId(null);
-    setSeconds(0);
-  };
-
-  const formatTime = (s: number) =>
-    `${Math.floor(s / 3600).toString().padStart(2, "0")}:${Math.floor((s % 3600) / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+  const { seconds, running, sessionId, selectedSubject, subjects, setSelectedSubject, start, pause, stop, formatTime } = useStudyTimer();
 
   return (
-    <Card className="glass-card border-primary/20">
-      <CardContent className="p-4">
+    <Card className="glass-card border-primary/20 overflow-hidden relative">
+      <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none" />
+      <CardContent className="p-4 relative">
         <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Timer className="w-5 h-5 text-primary" />
-            <span className="font-mono text-2xl font-bold text-primary">{formatTime(seconds)}</span>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Timer className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Cronômetro</p>
+              <span className="font-mono text-2xl font-bold text-primary tabular-nums">{formatTime(seconds)}</span>
+            </div>
           </div>
 
           {!sessionId && (
@@ -80,10 +33,10 @@ export function StudyTimer() {
             </Select>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 ml-auto">
             {!sessionId ? (
-              <Button onClick={start} size="sm" className="gradient-primary text-primary-foreground gap-1">
-                <Play className="w-4 h-4" /> Iniciar
+              <Button onClick={start} size="sm" className="gradient-primary text-primary-foreground gap-1.5 shadow-lg shadow-primary/25">
+                <Zap className="w-4 h-4" /> Iniciar Sessão
               </Button>
             ) : (
               <>
