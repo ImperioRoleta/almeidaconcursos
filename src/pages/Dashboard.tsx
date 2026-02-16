@@ -98,6 +98,7 @@ export default function Dashboard() {
 
   const levelName = profile?.levels?.name || "Recruta";
   const isPremium = subscription?.plan !== "gratuito" && subscription?.status === "active";
+  const isTrial = subscription?.plan === "premium_teste" || subscription?.plan === "trial";
   const isExpired = subscription?.expire_date && new Date(subscription.expire_date) < new Date();
   const daysLeft = subscription?.expire_date
     ? Math.max(0, Math.ceil((new Date(subscription.expire_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
@@ -127,8 +128,8 @@ export default function Dashboard() {
           </p>
         </div>
         {isPremium && !isExpired ? (
-          <Badge className="bg-accent/10 text-accent border-accent/20 gap-1">
-            <Crown className="w-3 h-3" /> Premium
+          <Badge className={`gap-1 ${isTrial ? "bg-[hsl(280,70%,55%)]/10 text-[hsl(280,70%,55%)] border-[hsl(280,70%,55%)]/20" : "bg-accent/10 text-accent border-accent/20"}`}>
+            <Crown className="w-3 h-3" /> {isTrial ? "Premium Teste" : "Premium"}
             {daysLeft !== null && <span className="text-[10px] ml-1">({daysLeft}d)</span>}
           </Badge>
         ) : (
