@@ -6,14 +6,46 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Crown, Search, Calendar, User, Clock, Gift, Zap, RefreshCw } from "lucide-react";
+import { Crown, Search, Calendar, User, Clock, Gift, Zap, RefreshCw, ShieldCheck, Sparkles, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 
+const PLAN_LABELS: Record<string, string> = {
+  gratuito: "Gratuito",
+  premium_mensal: "Premium Mensal",
+  premium_anual: "Premium Anual",
+  premium_teste: "Premium Teste",
+  trial: "Premium Teste", // legacy compat
+};
+
+const PLAN_COLORS: Record<string, string> = {
+  gratuito: "bg-muted text-muted-foreground",
+  premium_mensal: "bg-primary/10 text-primary",
+  premium_anual: "bg-accent/10 text-accent",
+  premium_teste: "bg-[hsl(280,70%,55%)]/10 text-[hsl(280,70%,55%)]",
+  trial: "bg-[hsl(280,70%,55%)]/10 text-[hsl(280,70%,55%)]",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  active: "text-[hsl(142,71%,45%)]",
+  blocked: "text-destructive",
+  inactive: "text-muted-foreground",
+};
+
+const DURATION_PRESETS = [
+  { label: "3 dias", value: "3" },
+  { label: "7 dias", value: "7" },
+  { label: "15 dias", value: "15" },
+  { label: "30 dias (1 mês)", value: "30" },
+  { label: "90 dias (3 meses)", value: "90" },
+  { label: "180 dias (6 meses)", value: "180" },
+  { label: "365 dias (1 ano)", value: "365" },
+];
+
 export default function AdminAssinaturas() {
-  const { user: adminUser } = useAuth();
+  const { user: adminUser, isAdmin } = useAuth();
   const [subs, setSubs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -43,6 +75,8 @@ export default function AdminAssinaturas() {
 
     const merged = (subsRes.data ?? []).map(s => ({
       ...s,
+      // normalize legacy "trial" to "premium_teste"
+      plan: s.plan === "trial" ? "premium_teste" : s.plan,
       userName: profileMap[s.user_id] || "Sem nome",
     }));
 
@@ -61,12 +95,13 @@ export default function AdminAssinaturas() {
 
   const saveEdit = async () => {
     if (!editSub) return;
+    if (!isAdmin) { toast.error("Apenas administradores podem editar assinaturas."); return; }
     const { error } = await supabase.from("subscriptions").update({
       plan: editPlan,
       status: editStatus,
       expire_date: expireDate ? new Date(expireDate).toISOString() : null,
     }).eq("id", editSub.id);
-    if (error) { toast.error("Erro ao atualizar"); return; }
+    if (error) { toast.error("Erro ao atualizar: " + error.message); return; }
     toast.success("Assinatura atualizada!");
     setEditSub(null);
     fetchSubs();
@@ -74,6 +109,7 @@ export default function AdminAssinaturas() {
 
   const grantSubscription = async () => {
     if (!adminUser || selectedUsers.size === 0) return;
+    if (!isAdmin) { toast.error("Sem permissão de administrador."); return; }
     setGranting(true);
     const { data, error } = await supabase.rpc("admin_grant_subscription", {
       _admin_user_id: adminUser.id,
@@ -89,11 +125,14 @@ export default function AdminAssinaturas() {
       setShowGrantDialog(false);
       setSelectedUsers(new Set());
       fetchSubs();
+    } else {
+      toast.error(result?.error || "Erro desconhecido");
     }
   };
 
   const grantTrial = async () => {
     if (!adminUser || selectedUsers.size === 0) return;
+    if (!isAdmin) { toast.error("Sem permissão de administrador."); return; }
     setGranting(true);
     const { data, error } = await supabase.rpc("admin_grant_trial", {
       _admin_user_id: adminUser.id,
@@ -104,10 +143,12 @@ export default function AdminAssinaturas() {
     if (error) { toast.error("Erro: " + error.message); return; }
     const result = data as any;
     if (result?.success) {
-      toast.success(`Teste gratuito concedido para ${result.updated} usuário(s)!`);
+      toast.success(`Premium Teste concedido para ${result.updated} usuário(s)!`);
       setShowTrialDialog(false);
       setSelectedUsers(new Set());
       fetchSubs();
+    } else {
+      toast.error(result?.error || "Erro desconhecido");
     }
   };
 
@@ -135,38 +176,18 @@ export default function AdminAssinaturas() {
     return !q || s.userName.toLowerCase().includes(q) || s.user_id.toLowerCase().includes(q);
   });
 
-  const planLabels: Record<string, string> = {
-    gratuito: "Gratuito", premium_mensal: "Premium Mensal", premium_anual: "Premium Anual", trial: "Teste Grátis",
-  };
-  const planColors: Record<string, string> = {
-    gratuito: "bg-muted text-muted-foreground",
-    premium_mensal: "bg-primary/10 text-primary",
-    premium_anual: "bg-accent/10 text-accent",
-    trial: "bg-[hsl(142,71%,45%)]/10 text-[hsl(142,71%,45%)]",
-  };
-  const statusColors: Record<string, string> = {
-    active: "text-[hsl(142,71%,45%)]",
-    blocked: "text-destructive",
-    inactive: "text-muted-foreground",
-  };
-
-  const durationPresets = [
-    { label: "7 dias", value: "7" }, { label: "15 dias", value: "15" },
-    { label: "30 dias", value: "30" }, { label: "90 dias", value: "90" },
-    { label: "180 dias", value: "180" }, { label: "365 dias", value: "365" },
-  ];
-
-  const premiumCount = subs.filter(s => s.plan !== "gratuito" && s.plan !== "trial" && s.status === "active").length;
-  const trialCount = subs.filter(s => s.plan === "trial" && s.status === "active").length;
+  const premiumCount = subs.filter(s => s.plan !== "gratuito" && s.plan !== "premium_teste" && s.status === "active").length;
+  const trialCount = subs.filter(s => s.plan === "premium_teste" && s.status === "active").length;
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="font-heading text-2xl font-bold flex items-center gap-2">
             <Crown className="w-6 h-6 text-accent" /> Gestão de Assinaturas
           </h1>
-          <p className="text-muted-foreground text-sm">{subs.length} total • {premiumCount} premium • {trialCount} trial</p>
+          <p className="text-muted-foreground text-sm">{subs.length} total • {premiumCount} premium • {trialCount} premium teste</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={runExpiredCheck} disabled={checkingExpired}>
@@ -178,24 +199,26 @@ export default function AdminAssinaturas() {
               <Button size="sm" className="gradient-primary text-primary-foreground gap-1" onClick={() => setShowGrantDialog(true)}>
                 <Crown className="w-4 h-4" /> Dar Assinatura ({selectedUsers.size})
               </Button>
-              <Button size="sm" variant="outline" className="gap-1" onClick={() => setShowTrialDialog(true)}>
-                <Gift className="w-4 h-4" /> Teste Grátis ({selectedUsers.size})
+              <Button size="sm" variant="outline" className="gap-1 border-[hsl(280,70%,55%)]/30 text-[hsl(280,70%,55%)] hover:bg-[hsl(280,70%,55%)]/10" onClick={() => setShowTrialDialog(true)}>
+                <Star className="w-4 h-4" /> Premium Teste ({selectedUsers.size})
               </Button>
             </>
           )}
         </div>
       </div>
 
+      {/* Search + Select All */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className="pl-9" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nome ou ID..." className="pl-9" />
         </div>
         <Button variant="outline" size="sm" onClick={selectAll}>
           {selectedUsers.size === filtered.length ? "Desmarcar" : "Selecionar Todos"}
         </Button>
       </div>
 
+      {/* List */}
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -229,8 +252,11 @@ export default function AdminAssinaturas() {
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Badge className={`text-[11px] ${planColors[s.plan] || ""}`}>{planLabels[s.plan] || s.plan}</Badge>
-                    <span className={`text-xs font-medium ${statusColors[s.status] || ""}`}>
+                    <Badge className={`text-[11px] ${PLAN_COLORS[s.plan] || PLAN_COLORS.gratuito}`}>
+                      {s.plan === "premium_teste" && <Star className="w-3 h-3 mr-1" />}
+                      {PLAN_LABELS[s.plan] || s.plan}
+                    </Badge>
+                    <span className={`text-xs font-medium ${STATUS_COLORS[s.status] || ""}`}>
                       {s.status === "active" ? "● Ativo" : s.status === "blocked" ? "● Bloqueado" : "● Inativo"}
                     </span>
                     {daysLeft !== null && !isExpired && (
@@ -247,6 +273,7 @@ export default function AdminAssinaturas() {
               </Card>
             );
           })}
+          {filtered.length === 0 && <p className="text-muted-foreground text-center py-8">Nenhuma assinatura encontrada.</p>}
         </div>
       )}
 
@@ -255,6 +282,7 @@ export default function AdminAssinaturas() {
         <DialogContent className="bg-card border-border max-w-md">
           <DialogHeader>
             <DialogTitle className="font-heading">Editar Assinatura - {editSub?.userName}</DialogTitle>
+            <DialogDescription>Altere o plano, status e data de expiração.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -265,7 +293,7 @@ export default function AdminAssinaturas() {
                   <SelectItem value="gratuito">Gratuito</SelectItem>
                   <SelectItem value="premium_mensal">Premium Mensal</SelectItem>
                   <SelectItem value="premium_anual">Premium Anual</SelectItem>
-                  <SelectItem value="trial">Teste Grátis</SelectItem>
+                  <SelectItem value="premium_teste">Premium Teste</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -283,7 +311,7 @@ export default function AdminAssinaturas() {
               <Label>Data de Expiração</Label>
               <Input type="date" value={expireDate} onChange={e => setExpireDate(e.target.value)} />
             </div>
-            <Button onClick={saveEdit} className="w-full gradient-primary text-primary-foreground">Salvar</Button>
+            <Button onClick={saveEdit} className="w-full gradient-primary text-primary-foreground">Salvar Alterações</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -293,11 +321,14 @@ export default function AdminAssinaturas() {
         <DialogContent className="bg-card border-border max-w-md">
           <DialogHeader>
             <DialogTitle className="font-heading flex items-center gap-2">
-              <Crown className="w-5 h-5 text-accent" /> Dar Assinatura
+              <Crown className="w-5 h-5 text-accent" /> Dar Assinatura Premium
             </DialogTitle>
+            <DialogDescription>Conceder acesso premium para os usuários selecionados.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">{selectedUsers.size} usuário(s) selecionado(s)</p>
+            <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+              <p className="text-sm font-medium">{selectedUsers.size} usuário(s) selecionado(s)</p>
+            </div>
             <div className="space-y-2">
               <Label>Plano</Label>
               <Select value={grantPlan} onValueChange={setGrantPlan}>
@@ -313,7 +344,7 @@ export default function AdminAssinaturas() {
               <Select value={grantDays} onValueChange={setGrantDays}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {durationPresets.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+                  {DURATION_PRESETS.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -324,21 +355,26 @@ export default function AdminAssinaturas() {
         </DialogContent>
       </Dialog>
 
-      {/* Free Trial Dialog */}
+      {/* Premium Teste Dialog */}
       <Dialog open={showTrialDialog} onOpenChange={setShowTrialDialog}>
         <DialogContent className="bg-card border-border max-w-md">
           <DialogHeader>
             <DialogTitle className="font-heading flex items-center gap-2">
-              <Gift className="w-5 h-5 text-[hsl(142,71%,45%)]" /> Teste Gratuito
+              <Star className="w-5 h-5 text-[hsl(280,70%,55%)]" /> Premium Teste
             </DialogTitle>
+            <DialogDescription>Conceder acesso Premium Teste temporário. O usuário terá acesso completo a todos os recursos premium durante o período.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">{selectedUsers.size} usuário(s) selecionado(s)</p>
+            <div className="p-3 rounded-lg bg-[hsl(280,70%,55%)]/5 border border-[hsl(280,70%,55%)]/10">
+              <p className="text-sm font-medium">{selectedUsers.size} usuário(s) selecionado(s)</p>
+              <p className="text-xs text-muted-foreground mt-1">Acesso completo: IA, Simulados, Plano de Estudos, Aulas Premium</p>
+            </div>
             <div className="space-y-2">
-              <Label>Duração</Label>
+              <Label>Duração do Premium Teste</Label>
               <Select value={trialDays} onValueChange={setTrialDays}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="1">1 dia</SelectItem>
                   <SelectItem value="3">3 dias</SelectItem>
                   <SelectItem value="7">7 dias</SelectItem>
                   <SelectItem value="14">14 dias</SelectItem>
@@ -346,8 +382,8 @@ export default function AdminAssinaturas() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={grantTrial} disabled={granting} className="w-full bg-[hsl(142,71%,45%)] text-background hover:bg-[hsl(142,71%,40%)]">
-              {granting ? "Processando..." : "Conceder Teste Gratuito"}
+            <Button onClick={grantTrial} disabled={granting} className="w-full bg-[hsl(280,70%,55%)] text-white hover:bg-[hsl(280,70%,50%)]">
+              {granting ? "Processando..." : "Conceder Premium Teste"}
             </Button>
           </div>
         </DialogContent>
