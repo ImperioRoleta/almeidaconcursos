@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, ChevronRight, CheckCircle } from "lucide-react";
+import { BookOpen, ChevronRight, CheckCircle, Lock } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Aulas() {
   const { user } = useAuth();
+  const { isActive } = useSubscription();
+  const navigate = useNavigate();
   const [subjects, setSubjects] = useState<any[]>([]);
   const [topics, setTopics] = useState<any[]>([]);
   const [lessons, setLessons] = useState<any[]>([]);
@@ -131,17 +134,33 @@ export default function Aulas() {
         <>
           <Button variant="ghost" onClick={() => setSelectedTopic(null)} className="text-muted-foreground">← Assuntos</Button>
           <div className="space-y-3">
-            {lessons.map(l => (
-              <Card key={l.id} className="glass-card cursor-pointer hover:border-primary/30 transition-colors" onClick={() => setSelectedLesson(l)}>
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {completedIds.has(l.id) ? <CheckCircle className="w-4 h-4 text-green-400" /> : <BookOpen className="w-4 h-4 text-muted-foreground" />}
-                    <p className="font-medium">{l.title}</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-            ))}
+            {lessons.map(l => {
+              const locked = l.is_premium && !isActive;
+              return (
+                <Card
+                  key={l.id}
+                  className={`glass-card cursor-pointer transition-colors ${locked ? "opacity-60" : "hover:border-primary/30"}`}
+                  onClick={() => locked ? navigate("/assinatura") : setSelectedLesson(l)}
+                >
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {completedIds.has(l.id) ? (
+                        <CheckCircle className="w-4 h-4 text-[hsl(var(--chart-4))]" />
+                      ) : locked ? (
+                        <Lock className="w-4 h-4 text-accent" />
+                      ) : (
+                        <BookOpen className="w-4 h-4 text-muted-foreground" />
+                      )}
+                      <p className="font-medium">{l.title}</p>
+                      {locked && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-accent/10 text-accent">PREMIUM</span>
+                      )}
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </CardContent>
+                </Card>
+              );
+            })}
             {lessons.length === 0 && <p className="text-muted-foreground text-sm">Nenhuma aula disponível neste assunto.</p>}
           </div>
         </>
