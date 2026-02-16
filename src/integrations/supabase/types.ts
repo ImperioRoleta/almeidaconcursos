@@ -1,0 +1,679 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
+  }
+  public: {
+    Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      lessons: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          is_premium: boolean | null
+          order_index: number | null
+          title: string
+          topic_id: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_premium?: boolean | null
+          order_index?: number | null
+          title: string
+          topic_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_premium?: boolean | null
+          order_index?: number | null
+          title?: string
+          topic_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lessons_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      levels: {
+        Row: {
+          id: number
+          min_accuracy: number | null
+          min_hours: number | null
+          name: string
+          rank_order: number
+        }
+        Insert: {
+          id?: number
+          min_accuracy?: number | null
+          min_hours?: number | null
+          name: string
+          rank_order?: number
+        }
+        Update: {
+          id?: number
+          min_accuracy?: number | null
+          min_hours?: number | null
+          name?: string
+          rank_order?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          level_id: number | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          level_id?: number | null
+          name?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          level_id?: number | null
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_level_id_fkey"
+            columns: ["level_id"]
+            isOneToOne: false
+            referencedRelation: "levels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_options: {
+        Row: {
+          id: string
+          is_correct: boolean
+          label: string
+          question_id: string
+          text: string
+        }
+        Insert: {
+          id?: string
+          is_correct?: boolean
+          label: string
+          question_id: string
+          text: string
+        }
+        Update: {
+          id?: string
+          is_correct?: boolean
+          label?: string
+          question_id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      questions: {
+        Row: {
+          created_at: string
+          difficulty: string | null
+          explanation: string | null
+          id: string
+          is_premium: boolean | null
+          statement: string
+          subject_id: string
+          topic_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          difficulty?: string | null
+          explanation?: string | null
+          id?: string
+          is_premium?: boolean | null
+          statement: string
+          subject_id: string
+          topic_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          difficulty?: string | null
+          explanation?: string | null
+          id?: string
+          is_premium?: boolean | null
+          statement?: string
+          subject_id?: string
+          topic_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "questions_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      simulation_results: {
+        Row: {
+          completed_at: string
+          duration_seconds: number | null
+          id: string
+          score: number | null
+          simulation_id: string
+          total_correct: number | null
+          total_wrong: number | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          duration_seconds?: number | null
+          id?: string
+          score?: number | null
+          simulation_id: string
+          total_correct?: number | null
+          total_wrong?: number | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          duration_seconds?: number | null
+          id?: string
+          score?: number | null
+          simulation_id?: string
+          total_correct?: number | null
+          total_wrong?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "simulation_results_simulation_id_fkey"
+            columns: ["simulation_id"]
+            isOneToOne: false
+            referencedRelation: "simulations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      simulations: {
+        Row: {
+          created_at: string
+          id: string
+          status: string | null
+          time_limit_minutes: number | null
+          title: string
+          total_questions: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          status?: string | null
+          time_limit_minutes?: number | null
+          title?: string
+          total_questions?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          status?: string | null
+          time_limit_minutes?: number | null
+          title?: string
+          total_questions?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      study_sessions: {
+        Row: {
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          started_at: string
+          subject_id: string | null
+          user_id: string
+        }
+        Insert: {
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          subject_id?: string | null
+          user_id: string
+        }
+        Update: {
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          subject_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subjects: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          order_index: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          order_index?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          order_index?: number | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          created_at: string
+          expire_date: string | null
+          id: string
+          plan: string
+          start_date: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expire_date?: string | null
+          id?: string
+          plan?: string
+          start_date?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expire_date?: string | null
+          id?: string
+          plan?: string
+          start_date?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      topics: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          order_index: number | null
+          subject_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          order_index?: number | null
+          subject_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          order_index?: number | null
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_answers: {
+        Row: {
+          answered_at: string
+          id: string
+          is_correct: boolean
+          question_id: string
+          selected_option_id: string | null
+          user_id: string
+        }
+        Insert: {
+          answered_at?: string
+          id?: string
+          is_correct: boolean
+          question_id: string
+          selected_option_id?: string | null
+          user_id: string
+        }
+        Update: {
+          answered_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          selected_option_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_answers_selected_option_id_fkey"
+            columns: ["selected_option_id"]
+            isOneToOne: false
+            referencedRelation: "question_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_progress: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          id: string
+          lesson_id: string | null
+          subject_id: string | null
+          topic_id: string | null
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          id?: string
+          lesson_id?: string | null
+          subject_id?: string | null
+          topic_id?: string | null
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          id?: string
+          lesson_id?: string | null
+          subject_id?: string | null
+          topic_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_progress_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_progress_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+    }
+    Enums: {
+      app_role: "admin" | "user"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      app_role: ["admin", "user"],
+    },
+  },
+} as const
