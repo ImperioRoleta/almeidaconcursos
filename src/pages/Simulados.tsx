@@ -1,12 +1,21 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import PremiumGate from "@/components/PremiumGate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { FileText, Clock, Play, CheckCircle, XCircle } from "lucide-react";
 
 export default function Simulados() {
+  return (
+    <PremiumGate feature="Simulados">
+      <SimuladosContent />
+    </PremiumGate>
+  );
+}
+
+function SimuladosContent() {
   const { user } = useAuth();
   const [simulations, setSimulations] = useState<any[]>([]);
   const [activeSimulation, setActiveSimulation] = useState<any | null>(null);

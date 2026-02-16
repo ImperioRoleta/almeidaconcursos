@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import PremiumGate from "@/components/PremiumGate";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,14 @@ type StudyPlan = {
 };
 
 export default function PlanoEstudos() {
+  return (
+    <PremiumGate feature="Plano de Estudos">
+      <PlanoEstudosContent />
+    </PremiumGate>
+  );
+}
+
+function PlanoEstudosContent() {
   const { user } = useAuth();
   const [plans, setPlans] = useState<StudyPlan[]>([]);
   const [activePlan, setActivePlan] = useState<StudyPlan | null>(null);
