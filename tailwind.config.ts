@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        heading: ["Poppins", "sans-serif"],
-        sans: ["Inter", "sans-serif"],
+        heading: ["Space Grotesk", "sans-serif"],
+        sans: ["DM Sans", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
       colors: {
@@ -54,6 +54,7 @@ export default {
         },
         gold: "hsl(var(--gold))",
         highlight: "hsl(var(--highlight))",
+        premium: "hsl(var(--premium))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

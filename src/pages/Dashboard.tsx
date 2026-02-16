@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
+import UpgradePrompt from "@/components/UpgradePrompt";
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
@@ -157,6 +158,9 @@ export default function Dashboard() {
       )}
 
       <StudyTimer />
+
+      {/* Premium upgrade banner */}
+      <UpgradePrompt context="Estude sem limites: questões, simulados, IA e plano personalizado" />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 stagger-children">
