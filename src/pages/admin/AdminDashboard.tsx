@@ -1,19 +1,22 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, BookOpen, HelpCircle, FileText, Crown, TrendingUp, Activity, Trophy, AlertTriangle, DollarSign } from "lucide-react";
+import { Users, BookOpen, HelpCircle, FileText, Crown, TrendingUp, Activity, Trophy, AlertTriangle, DollarSign, CreditCard, Clock } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({ users: 0, subjects: 0, questions: 0, lessons: 0, premium: 0, active: 0, expiringSoon: 0, achievements: 0 });
   const [planData, setPlanData] = useState<any[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [revenueEstimate, setRevenueEstimate] = useState({ monthly: 0, annual: 0 });
+  const [pendingPayments, setPendingPayments] = useState(0);
 
   useEffect(() => {
     const fetchAll = async () => {
-      const [u, s, q, l, subs, sessions, achCount] = await Promise.all([
+      const [u, s, q, l, subs, sessions, achCount, payReqs] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase.from("subjects").select("id", { count: "exact", head: true }),
         supabase.from("questions").select("id", { count: "exact", head: true }),
@@ -21,7 +24,10 @@ export default function AdminDashboard() {
         supabase.from("subscriptions").select("plan, status, expire_date"),
         supabase.from("study_sessions").select("user_id, duration_seconds, started_at").order("started_at", { ascending: false }).limit(50),
         supabase.from("user_achievements").select("id", { count: "exact", head: true }),
+        supabase.from("payment_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
       ]);
+
+      setPendingPayments(payReqs.count ?? 0);
 
       const subsData = subs.data ?? [];
       const premium = subsData.filter(s => s.plan !== "gratuito" && s.status === "active").length;
@@ -85,11 +91,20 @@ export default function AdminDashboard() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="font-heading text-2xl font-bold">Painel Administrativo</h1>
-        {stats.expiringSoon > 0 && (
-          <Badge className="bg-[hsl(38,92%,50%)]/10 text-[hsl(38,92%,50%)] border-[hsl(38,92%,50%)]/20">
-            <AlertTriangle className="w-3 h-3 mr-1" /> {stats.expiringSoon} assinaturas expirando
-          </Badge>
-        )}
+        <div className="flex gap-2">
+          {pendingPayments > 0 && (
+            <Link to="/admin/pagamentos">
+              <Badge className="bg-primary/10 text-primary border-primary/20 cursor-pointer hover:bg-primary/20 transition-colors">
+                <CreditCard className="w-3 h-3 mr-1" /> {pendingPayments} pagamento(s) pendente(s)
+              </Badge>
+            </Link>
+          )}
+          {stats.expiringSoon > 0 && (
+            <Badge className="bg-[hsl(38,92%,50%)]/10 text-[hsl(38,92%,50%)] border-[hsl(38,92%,50%)]/20">
+              <AlertTriangle className="w-3 h-3 mr-1" /> {stats.expiringSoon} expirando
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Revenue card */}

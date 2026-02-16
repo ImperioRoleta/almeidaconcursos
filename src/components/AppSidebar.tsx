@@ -28,6 +28,8 @@ import {
   CalendarDays,
   Trophy,
   Award,
+  CreditCard,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -40,6 +42,7 @@ const studentItems = [
   { title: "Ranking", url: "/ranking", icon: Trophy },
   { title: "Conquistas", url: "/conquistas", icon: Award },
   { title: "IA Assistente", url: "/ia", icon: MessageSquare },
+  { title: "Assinatura", url: "/assinatura", icon: Crown },
   { title: "Perfil", url: "/perfil", icon: User },
 ];
 
@@ -50,6 +53,7 @@ const adminItems = [
   { title: "Questões", url: "/admin/questoes", icon: HelpCircle },
   { title: "IA Admin", url: "/admin/ia", icon: MessageSquare },
   { title: "Assinaturas", url: "/admin/assinaturas", icon: Crown },
+  { title: "Pagamentos", url: "/admin/pagamentos", icon: CreditCard },
 ];
 
 export function AppSidebar() {
