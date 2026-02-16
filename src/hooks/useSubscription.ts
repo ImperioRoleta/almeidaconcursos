@@ -13,9 +13,10 @@ export function useSubscription() {
       .then(({ data }) => { setSubscription(data); setLoading(false); });
   }, [user]);
 
-  const isPremium = subscription?.plan !== "gratuito" && subscription?.status === "active";
   const isExpired = subscription?.expire_date && new Date(subscription.expire_date) < new Date();
-  const isActive = subscription?.status === "active" && !isExpired;
+  const isPremium = subscription?.plan !== "gratuito" && subscription?.plan !== "trial" && subscription?.status === "active" && !isExpired;
+  const isTrial = subscription?.plan === "trial" && subscription?.status === "active" && !isExpired;
+  const isActive = (isPremium || isTrial) && !isExpired;
 
-  return { subscription, isPremium, isExpired, isActive, loading };
+  return { subscription, isPremium, isTrial, isExpired, isActive, loading };
 }
