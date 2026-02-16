@@ -26,6 +26,7 @@ import AdminPagamentos from "./pages/admin/AdminPagamentos";
 import Conquistas from "./pages/Conquistas";
 import Assinatura from "./pages/Assinatura";
 import NotFound from "./pages/NotFound";
+import AdminGuard from "./components/AdminGuard";
 
 const queryClient = new QueryClient();
 
@@ -52,13 +53,13 @@ const App = () => (
               <Route path="/conquistas" element={<Conquistas />} />
               <Route path="/assinatura" element={<Assinatura />} />
               <Route path="/perfil" element={<Perfil />} />
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/usuarios" element={<AdminUsuarios />} />
-              <Route path="/admin/conteudo" element={<AdminConteudo />} />
-              <Route path="/admin/questoes" element={<AdminQuestoes />} />
-              <Route path="/admin/ia" element={<AdminIA />} />
-              <Route path="/admin/assinaturas" element={<AdminAssinaturas />} />
-              <Route path="/admin/pagamentos" element={<AdminPagamentos />} />
+              <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
+              <Route path="/admin/usuarios" element={<AdminGuard><AdminUsuarios /></AdminGuard>} />
+              <Route path="/admin/conteudo" element={<AdminGuard><AdminConteudo /></AdminGuard>} />
+              <Route path="/admin/questoes" element={<AdminGuard><AdminQuestoes /></AdminGuard>} />
+              <Route path="/admin/ia" element={<AdminGuard><AdminIA /></AdminGuard>} />
+              <Route path="/admin/assinaturas" element={<AdminGuard><AdminAssinaturas /></AdminGuard>} />
+              <Route path="/admin/pagamentos" element={<AdminGuard><AdminPagamentos /></AdminGuard>} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle, HelpCircle, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import UpgradePrompt from "@/components/UpgradePrompt";
 
 export default function Questoes() {
   const { user } = useAuth();
@@ -77,14 +78,7 @@ export default function Questoes() {
         <h1 className="font-heading text-2xl font-bold">Questões</h1>
         <p className="text-muted-foreground">Escolha uma matéria para praticar</p>
         {!isActive && (
-          <Card className="glass-card border-accent/20 cursor-pointer hover:border-accent/40 transition-colors" onClick={() => navigate("/assinatura")}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <Lock className="w-5 h-5 text-accent shrink-0" />
-              <p className="text-sm text-muted-foreground">
-                <span className="text-accent font-semibold">Premium:</span> Desbloqueie todas as questões, incluindo as exclusivas do plano premium.
-              </p>
-            </CardContent>
-          </Card>
+          <UpgradePrompt variant="compact" context="Desbloqueie todas as questões premium" />
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {subjects.map(s => (
