@@ -47,10 +47,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const fetchData = async () => {
-      const [rolesRes, profileRes] = await Promise.all([
+      const [rolesRes, profileRes, subRes] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", user.id),
         supabase.from("profiles").select("*, levels(*)").eq("user_id", user.id).single(),
+        supabase.from("subscriptions").select("status").eq("user_id", user.id).single(),
       ]);
+
+      // If user is blocked, sign them out immediately
+      if (subRes.data?.status === "blocked") {
+        await supabase.auth.signOut();
+        return;
+      }
 
       setIsAdmin(rolesRes.data?.some((r: any) => r.role === "admin") ?? false);
       setProfile(profileRes.data);
