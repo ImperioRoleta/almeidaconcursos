@@ -292,6 +292,45 @@ export type Database = {
         }
         Relationships: []
       }
+      study_plans: {
+        Row: {
+          created_at: string
+          current_day: number
+          description: string | null
+          id: string
+          plan_data: Json
+          status: string
+          title: string
+          total_days: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_day?: number
+          description?: string | null
+          id?: string
+          plan_data?: Json
+          status?: string
+          title?: string
+          total_days?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_day?: number
+          description?: string | null
+          id?: string
+          plan_data?: Json
+          status?: string
+          title?: string
+          total_days?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       study_sessions: {
         Row: {
           duration_seconds: number | null
