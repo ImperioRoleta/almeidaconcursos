@@ -17,14 +17,33 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
+    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
+      setLoading(false);
       toast.error(error.message);
-    } else {
-      toast.success("Login realizado com sucesso!");
-      navigate("/dashboard");
+      return;
     }
+
+    // Check if user is blocked before proceeding
+    const userId = authData.user?.id;
+    if (userId) {
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("status")
+        .eq("user_id", userId)
+        .single();
+
+      if (sub?.status === "blocked") {
+        await supabase.auth.signOut();
+        setLoading(false);
+        toast.error("Sua conta foi bloqueada. Entre em contato com o suporte para mais informações.", { duration: 6000 });
+        return;
+      }
+    }
+
+    setLoading(false);
+    toast.success("Login realizado com sucesso!");
+    navigate("/dashboard");
   };
 
   const features = [
