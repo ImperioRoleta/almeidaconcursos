@@ -712,6 +712,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_block_user: {
+        Args: {
+          _admin_user_id: string
+          _block: boolean
+          _target_user_id: string
+        }
+        Returns: Json
+      }
       admin_grant_subscription: {
         Args: {
           _admin_user_id: string
@@ -726,6 +734,14 @@ export type Database = {
           _admin_user_id: string
           _duration_days: number
           _target_user_ids: string[]
+        }
+        Returns: Json
+      }
+      admin_toggle_role: {
+        Args: {
+          _admin_user_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _target_user_id: string
         }
         Returns: Json
       }
