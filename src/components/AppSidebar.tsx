@@ -25,6 +25,7 @@ import {
   Settings,
   Crown,
   LogOut,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -33,6 +34,7 @@ const studentItems = [
   { title: "Aulas", url: "/aulas", icon: BookOpen },
   { title: "Questões", url: "/questoes", icon: HelpCircle },
   { title: "Simulados", url: "/simulados", icon: FileText },
+  { title: "Plano de Estudos", url: "/plano", icon: CalendarDays },
   { title: "IA Assistente", url: "/ia", icon: MessageSquare },
   { title: "Perfil", url: "/perfil", icon: User },
 ];
