@@ -14,9 +14,16 @@ export function useSubscription() {
   }, [user]);
 
   const isExpired = subscription?.expire_date && new Date(subscription.expire_date) < new Date();
-  const isPremium = subscription?.plan !== "gratuito" && subscription?.plan !== "trial" && subscription?.status === "active" && !isExpired;
-  const isTrial = subscription?.plan === "trial" && subscription?.status === "active" && !isExpired;
+  const isPremium = subscription?.plan !== "gratuito" && subscription?.plan !== "premium_teste" && subscription?.status === "active" && !isExpired;
+  const isTrial = subscription?.plan === "premium_teste" && subscription?.status === "active" && !isExpired;
   const isActive = (isPremium || isTrial) && !isExpired;
+  const planLabel = subscription?.plan === "premium_teste" ? "Premium Teste"
+    : subscription?.plan === "premium_mensal" ? "Premium Mensal"
+    : subscription?.plan === "premium_anual" ? "Premium Anual"
+    : "Gratuito";
+  const daysLeft = subscription?.expire_date
+    ? Math.max(0, Math.ceil((new Date(subscription.expire_date).getTime() - Date.now()) / 86400000))
+    : null;
 
-  return { subscription, isPremium, isTrial, isExpired, isActive, loading };
+  return { subscription, isPremium, isTrial, isExpired, isActive, loading, planLabel, daysLeft };
 }
