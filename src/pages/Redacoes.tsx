@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ type View = "home" | "write" | "history" | "detail" | "correction";
 
 export default function Redacoes() {
   const { user } = useAuth();
+  const { isActive } = useSubscription();
   const [view, setView] = useState<View>("home");
   const [themes, setThemes] = useState<EssayTheme[]>([]);
   const [essays, setEssays] = useState<Essay[]>([]);
@@ -37,6 +39,10 @@ export default function Redacoes() {
   const [submitting, setSubmitting] = useState(false);
   const [correcting, setCorrecting] = useState(false);
   const [featureEnabled, setFeatureEnabled] = useState(true);
+  const [monthlyCount, setMonthlyCount] = useState(0);
+
+  const FREE_MONTHLY_LIMIT = 1;
+  const monthlyLimitReached = !isActive && monthlyCount >= FREE_MONTHLY_LIMIT;
 
   useEffect(() => { loadData(); }, [user]);
 
@@ -50,9 +56,24 @@ export default function Redacoes() {
     setThemes((themesRes.data as any[]) ?? []);
     setEssays((essaysRes.data as any[]) ?? []);
     if (settingsRes.data) setFeatureEnabled(settingsRes.data.value === "true");
+
+    // Count essays this month for free limit
+    if (!isActive) {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      const thisMonthEssays = ((essaysRes.data as any[]) ?? []).filter(
+        e => new Date(e.created_at) >= startOfMonth
+      );
+      setMonthlyCount(thisMonthEssays.length);
+    }
   };
 
   const startWriting = (theme?: EssayTheme) => {
+    if (monthlyLimitReached) {
+      toast.error("Limite mensal atingido! Faça upgrade para redações ilimitadas.");
+      return;
+    }
     setSelectedTheme(theme || null);
     setTitle(theme ? theme.title : "");
     setContent("");
@@ -269,10 +290,28 @@ export default function Redacoes() {
           <h1 className="font-heading text-2xl font-bold flex items-center gap-2"><PenLine className="w-6 h-6 text-primary" /> Redações</h1>
           <p className="text-muted-foreground text-sm">Escreva, envie e receba correções por IA</p>
         </div>
-        <Button onClick={() => startWriting()} className="gradient-primary text-primary-foreground">
+        <Button onClick={() => startWriting()} disabled={monthlyLimitReached} className="gradient-primary text-primary-foreground">
           <PenLine className="w-4 h-4 mr-2" /> Nova Redação
         </Button>
       </div>
+
+      {/* Monthly limit banner for free users */}
+      {!isActive && (
+        <div className="glass-card p-4 flex items-center justify-between border-accent/20">
+          <div className="flex items-center gap-3">
+            <PenLine className="w-5 h-5 text-accent" />
+            <div>
+              <p className="text-sm font-medium">
+                {monthlyLimitReached
+                  ? "Limite mensal atingido (1/1)"
+                  : `${monthlyCount}/${FREE_MONTHLY_LIMIT} redação este mês`}
+              </p>
+              <p className="text-xs text-muted-foreground">Faça upgrade para redações ilimitadas</p>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => window.location.href = "/assinatura"}>Upgrade</Button>
+        </div>
+      )}
 
       {/* Stats cards */}
       {essays.length > 0 && (

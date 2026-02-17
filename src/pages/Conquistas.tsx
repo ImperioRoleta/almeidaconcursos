@@ -4,12 +4,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, Target, Clock, Flame, FileText, Award, CheckCircle, Lock } from "lucide-react";
+import { Trophy, Target, Clock, Flame, FileText, Award, CheckCircle, Lock, PenLine } from "lucide-react";
 import { toast } from "sonner";
 
 const iconMap: Record<string, any> = {
   trophy: Trophy, target: Target, clock: Clock, flame: Flame,
   "file-text": FileText, award: Award, "check-circle": CheckCircle,
+  "pen-line": PenLine,
 };
 
 const categoryLabels: Record<string, string> = {
@@ -18,15 +19,17 @@ const categoryLabels: Record<string, string> = {
   desempenho: "🏅 Operação Excelência",
   streak: "🔥 Força Operacional",
   simulados: "⚔️ Operações Simuladas",
+  essays: "✍️ Redações",
   general: "🎖️ Geral",
 };
 
 const categoryColors: Record<string, string> = {
   questoes: "bg-primary/10 text-primary",
   estudo: "bg-accent/10 text-accent",
-  desempenho: "bg-green-500/10 text-green-400",
+  desempenho: "bg-[hsl(152,69%,42%)]/10 text-[hsl(152,69%,42%)]",
   streak: "bg-[hsl(25,95%,53%)]/10 text-[hsl(25,95%,53%)]",
   simulados: "bg-[hsl(210,80%,55%)]/10 text-[hsl(210,80%,55%)]",
+  essays: "bg-[hsl(280,70%,55%)]/10 text-[hsl(280,70%,55%)]",
   general: "bg-muted text-muted-foreground",
 };
 
@@ -34,17 +37,18 @@ export default function Conquistas() {
   const { user } = useAuth();
   const [achievements, setAchievements] = useState<any[]>([]);
   const [unlocked, setUnlocked] = useState<Set<string>>(new Set());
-  const [userStats, setUserStats] = useState({ questions: 0, hours: 0, accuracy: 0, streak: 0, simulations: 0 });
+  const [userStats, setUserStats] = useState({ questions: 0, hours: 0, accuracy: 0, streak: 0, simulations: 0, essays: 0, bestEssayScore: 0 });
 
   useEffect(() => {
     if (!user) return;
-    const fetch = async () => {
-      const [achRes, uaRes, sessRes, ansRes, simRes] = await Promise.all([
+    const fetchData = async () => {
+      const [achRes, uaRes, sessRes, ansRes, simRes, essaysRes] = await Promise.all([
         supabase.from("achievements").select("*").order("category").order("threshold"),
         supabase.from("user_achievements").select("achievement_id").eq("user_id", user.id),
         supabase.from("study_sessions").select("duration_seconds, started_at").eq("user_id", user.id),
         supabase.from("user_answers").select("is_correct, answered_at").eq("user_id", user.id),
         supabase.from("simulation_results").select("id").eq("user_id", user.id),
+        supabase.from("essays").select("id, score").eq("user_id", user.id),
       ]);
 
       setAchievements(achRes.data ?? []);
@@ -52,9 +56,11 @@ export default function Conquistas() {
 
       const sessions = sessRes.data ?? [];
       const answers = ansRes.data ?? [];
+      const essays = essaysRes.data ?? [];
       const totalHours = sessions.reduce((s, x) => s + (x.duration_seconds || 0), 0) / 3600;
       const correct = answers.filter(a => a.is_correct).length;
       const accuracy = answers.length > 0 ? Math.round((correct / answers.length) * 100) : 0;
+      const bestEssayScore = essays.length > 0 ? Math.max(...essays.map(e => e.score || 0), 0) : 0;
 
       // Calculate streak
       const sessionDays = new Set(sessions.map(s => new Date(s.started_at).toDateString()));
@@ -75,6 +81,8 @@ export default function Conquistas() {
         accuracy,
         streak,
         simulations: simRes.data?.length ?? 0,
+        essays: essays.length,
+        bestEssayScore,
       });
 
       // Auto-unlock achievements
@@ -88,6 +96,11 @@ export default function Conquistas() {
         else if (ach.key.startsWith("accuracy_")) earned = accuracy >= ach.threshold && answers.length >= 10;
         else if (ach.key.startsWith("streak_")) earned = streak >= ach.threshold;
         else if (ach.key.startsWith("simulation_")) earned = (simRes.data?.length ?? 0) >= ach.threshold;
+        else if (ach.key === "first_essay") earned = essays.length >= 1;
+        else if (ach.key === "essay_5") earned = essays.length >= 5;
+        else if (ach.key === "essay_10") earned = essays.length >= 10;
+        else if (ach.key === "essay_score_800") earned = bestEssayScore >= 800;
+        else if (ach.key === "essay_score_1000") earned = bestEssayScore >= 1000;
 
         if (earned) {
           const { error } = await supabase.from("user_achievements").insert({ user_id: user.id, achievement_id: ach.id });
@@ -99,7 +112,7 @@ export default function Conquistas() {
       }
       setUnlocked(currentUnlocked);
     };
-    fetch();
+    fetchData();
   }, [user]);
 
   const getProgress = (ach: any) => {
@@ -109,6 +122,11 @@ export default function Conquistas() {
     else if (ach.key.startsWith("accuracy_")) current = userStats.accuracy;
     else if (ach.key.startsWith("streak_")) current = userStats.streak;
     else if (ach.key.startsWith("simulation_")) current = userStats.simulations;
+    else if (ach.key === "first_essay") current = userStats.essays;
+    else if (ach.key === "essay_5") current = userStats.essays;
+    else if (ach.key === "essay_10") current = userStats.essays;
+    else if (ach.key === "essay_score_800") current = userStats.bestEssayScore;
+    else if (ach.key === "essay_score_1000") current = userStats.bestEssayScore;
     return Math.min((current / ach.threshold) * 100, 100);
   };
 
@@ -139,6 +157,10 @@ export default function Conquistas() {
           <div className="glass-card px-4 py-2 text-center">
             <p className="text-xs text-muted-foreground">Sequência</p>
             <p className="font-mono font-bold text-[hsl(25,95%,53%)]">{userStats.streak}🔥</p>
+          </div>
+          <div className="glass-card px-4 py-2 text-center">
+            <p className="text-xs text-muted-foreground">Redações</p>
+            <p className="font-mono font-bold text-[hsl(280,70%,55%)]">{userStats.essays}✍️</p>
           </div>
         </div>
       </div>

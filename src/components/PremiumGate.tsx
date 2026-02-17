@@ -9,6 +9,8 @@ type PremiumGateProps = {
   feature?: string;
   /** If true, shows inline lock badge instead of full-page block */
   inline?: boolean;
+  /** Show usage limit info e.g. "3/10 questões hoje" */
+  usageLabel?: string;
 };
 
 const PREMIUM_FEATURES = [
@@ -16,11 +18,13 @@ const PREMIUM_FEATURES = [
   "IA Assistente ilimitada",
   "Simulados completos",
   "Aulas premium",
-  "Questões premium",
+  "Questões ilimitadas",
   "Ranking completo",
+  "Redações ilimitadas",
+  "Revisões completas",
 ];
 
-export default function PremiumGate({ children, feature, inline = false }: PremiumGateProps) {
+export default function PremiumGate({ children, feature, inline = false, usageLabel }: PremiumGateProps) {
   const { isActive, loading } = useSubscription();
   const navigate = useNavigate();
 
@@ -42,9 +46,14 @@ export default function PremiumGate({ children, feature, inline = false }: Premi
       >
         <div className="opacity-40 pointer-events-none blur-[2px]">{children}</div>
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-accent/90 text-accent-foreground text-sm font-semibold shadow-lg group-hover:scale-105 transition-transform">
-            <Lock className="w-4 h-4" />
-            Premium
+          <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl bg-accent/90 text-accent-foreground text-sm font-semibold shadow-lg group-hover:scale-105 transition-transform">
+            <div className="flex items-center gap-2">
+              <Lock className="w-4 h-4" />
+              Premium
+            </div>
+            {usageLabel && (
+              <span className="text-[10px] font-normal opacity-80">{usageLabel}</span>
+            )}
           </div>
         </div>
       </div>
@@ -67,6 +76,9 @@ export default function PremiumGate({ children, feature, inline = false }: Premi
             <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
               Faça upgrade para desbloquear todos os recursos avançados da plataforma e acelerar sua preparação.
             </p>
+            {usageLabel && (
+              <p className="text-sm font-medium text-accent">{usageLabel}</p>
+            )}
           </div>
 
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">

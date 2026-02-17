@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import {
   Brain, CheckCircle, XCircle, Clock, Loader2,
   RotateCcw, Flame, Trophy, ChevronRight
 } from "lucide-react";
+import PremiumGate from "@/components/PremiumGate";
 
 type ReviewItem = {
   id: string;
@@ -31,6 +33,7 @@ type ReviewItem = {
 
 export default function Revisoes() {
   const { user } = useAuth();
+  const { isActive } = useSubscription();
   const [loading, setLoading] = useState(true);
   const [pendingReviews, setPendingReviews] = useState<ReviewItem[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -48,7 +51,6 @@ export default function Revisoes() {
   const fetchPendingReviews = async () => {
     setLoading(true);
     const now = new Date().toISOString();
-
     const { data: reviews, count } = await supabase
       .from("review_queue")
       .select("*", { count: "exact" })
@@ -66,7 +68,6 @@ export default function Revisoes() {
 
     setTotalPending(count ?? reviews.length);
 
-    // Fetch questions and options
     const questionIds = reviews.map(r => r.question_id);
     const [questionsRes, optionsRes, subjectsRes] = await Promise.all([
       supabase.from("questions").select("id, statement, explanation, subject_id").in("id", questionIds),
@@ -106,7 +107,6 @@ export default function Revisoes() {
     const opt = review.options?.find(o => o.id === optionId);
     const isCorrect = opt?.is_correct ?? false;
 
-    // Save answer
     await supabase.from("user_answers").insert({
       user_id: user.id,
       question_id: review.question_id,
@@ -114,7 +114,6 @@ export default function Revisoes() {
       is_correct: isCorrect,
     });
 
-    // SM-2 algorithm update
     let { ease_factor, interval_days, repetitions } = review;
     if (isCorrect) {
       repetitions += 1;
@@ -132,17 +131,12 @@ export default function Revisoes() {
     next_review_at.setDate(next_review_at.getDate() + interval_days);
 
     await supabase.from("review_queue").update({
-      interval_days,
-      ease_factor,
-      repetitions,
+      interval_days, ease_factor, repetitions,
       next_review_at: next_review_at.toISOString(),
       last_reviewed_at: new Date().toISOString(),
     }).eq("id", review.id);
 
-    setStats(prev => ({
-      total: prev.total + 1,
-      correct: prev.correct + (isCorrect ? 1 : 0),
-    }));
+    setStats(prev => ({ total: prev.total + 1, correct: prev.correct + (isCorrect ? 1 : 0) }));
   };
 
   const nextQuestion = () => {
@@ -163,6 +157,11 @@ export default function Revisoes() {
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  // Premium gate for free users
+  if (!isActive) {
+    return <PremiumGate feature="Revisões Espaçadas"><></></PremiumGate>;
   }
 
   // Review in progress
@@ -190,13 +189,12 @@ export default function Revisoes() {
         <Card className="glass-card">
           <CardContent className="p-6 space-y-6">
             <p className="font-medium text-lg">{q.statement}</p>
-
             <div className="space-y-3">
               {review.options?.map(opt => {
                 let classes = "glass-card p-4 cursor-pointer transition-colors";
                 if (answered) {
-                  if (opt.is_correct) classes += " border-green-500/50 bg-green-500/10";
-                  else if (opt.id === selected && !opt.is_correct) classes += " border-red-500/50 bg-red-500/10";
+                  if (opt.is_correct) classes += " border-[hsl(152,69%,42%)]/50 bg-[hsl(152,69%,42%)]/10";
+                  else if (opt.id === selected && !opt.is_correct) classes += " border-destructive/50 bg-destructive/10";
                 } else {
                   classes += " hover:border-primary/30";
                 }
@@ -205,8 +203,8 @@ export default function Revisoes() {
                     <div className="flex items-center gap-3">
                       <span className="font-mono font-bold text-primary">{opt.label})</span>
                       <span>{opt.text}</span>
-                      {answered && opt.is_correct && <CheckCircle className="w-4 h-4 text-green-400 ml-auto" />}
-                      {answered && opt.id === selected && !opt.is_correct && <XCircle className="w-4 h-4 text-red-400 ml-auto" />}
+                      {answered && opt.is_correct && <CheckCircle className="w-4 h-4 text-[hsl(152,69%,42%)] ml-auto" />}
+                      {answered && opt.id === selected && !opt.is_correct && <XCircle className="w-4 h-4 text-destructive ml-auto" />}
                     </div>
                   </div>
                 );
@@ -273,14 +271,12 @@ export default function Revisoes() {
             </Card>
             <Card className="glass-card">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
-                  <Trophy className="w-5 h-5 text-green-400" />
+                <div className="w-10 h-10 rounded-xl bg-[hsl(152,69%,42%)]/10 flex items-center justify-center">
+                  <Trophy className="w-5 h-5 text-[hsl(152,69%,42%)]" />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Tempo Estimado</p>
-                  <p className="text-lg font-heading font-bold font-mono">
-                    ~{Math.ceil(totalPending * 1.5)}min
-                  </p>
+                  <p className="text-lg font-heading font-bold font-mono">~{Math.ceil(totalPending * 1.5)}min</p>
                 </div>
               </CardContent>
             </Card>
@@ -293,7 +289,7 @@ export default function Revisoes() {
                 Você tem {totalPending} {totalPending === 1 ? "questão" : "questões"} para revisar
               </h2>
               <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                Revisões espaçadas são a forma mais eficaz de memorizar conteúdo. Questões que você errar voltarão mais cedo.
+                Revisões espaçadas são a forma mais eficaz de memorizar conteúdo.
               </p>
               <Button onClick={startReview} size="lg" className="gradient-primary text-primary-foreground h-12 px-8">
                 <Brain className="w-5 h-5 mr-2" /> Iniciar Revisão
@@ -301,10 +297,9 @@ export default function Revisoes() {
             </CardContent>
           </Card>
 
-          {/* Preview of pending items */}
           <div className="space-y-2">
             <h3 className="font-heading text-sm font-semibold text-muted-foreground">Questões na fila</h3>
-            {pendingReviews.slice(0, 5).map((r, i) => (
+            {pendingReviews.slice(0, 5).map(r => (
               <Card key={r.id} className="glass-card">
                 <CardContent className="p-3 flex items-center gap-3">
                   <RotateCcw className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -314,19 +309,17 @@ export default function Revisoes() {
               </Card>
             ))}
             {totalPending > 5 && (
-              <p className="text-xs text-muted-foreground text-center">
-                + {totalPending - 5} mais questões
-              </p>
+              <p className="text-xs text-muted-foreground text-center">+ {totalPending - 5} mais questões</p>
             )}
           </div>
         </>
       ) : (
         <Card className="glass-card">
           <CardContent className="p-12 text-center space-y-4">
-            <CheckCircle className="w-16 h-16 mx-auto text-green-400" />
+            <CheckCircle className="w-16 h-16 mx-auto text-[hsl(152,69%,42%)]" />
             <h2 className="font-heading text-xl font-bold">Tudo em dia! 🎉</h2>
             <p className="text-muted-foreground text-sm max-w-md mx-auto">
-              Nenhuma revisão pendente. Continue estudando e respondendo questões — as que você errar entrarão automaticamente na fila de revisão.
+              Nenhuma revisão pendente. Continue estudando e respondendo questões.
             </p>
           </CardContent>
         </Card>
