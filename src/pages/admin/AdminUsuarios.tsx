@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { toast } from "sonner";
 import { Users, Shield, Search, Ban, CheckCircle, Crown, User, Gift, Clock, ShieldCheck, ShieldOff, AlertTriangle, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
@@ -280,9 +281,12 @@ export default function AdminUsuarios() {
                   {/* Left: checkbox + info */}
                   <div className="flex items-center gap-3 min-w-0">
                     <Checkbox checked={isSelected} onCheckedChange={() => toggleSelectUser(u.user_id)} />
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isAdmin ? "bg-accent/10" : "bg-primary/10"}`}>
-                      {isAdmin ? <Shield className="w-4 h-4 text-accent" /> : <User className="w-4 h-4 text-primary" />}
-                    </div>
+                    <Avatar className="w-9 h-9 shrink-0">
+                      {u.avatar_url ? <AvatarImage src={u.avatar_url} alt={u.name} /> : null}
+                      <AvatarFallback className={isAdmin ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}>
+                        {isAdmin ? <Shield className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-heading font-semibold text-sm truncate">{u.name || "Sem nome"}</p>
