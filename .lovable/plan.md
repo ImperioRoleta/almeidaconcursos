@@ -1,73 +1,149 @@
 
-# Plano: Correcoes Criticas + Apostila/Video + Pente Fino
 
-## Bug 1: Reset de Questoes Nao Funciona (CRITICO)
+# Plano: Reset de Usuario + Gamificacao + Foto de Perfil + Redesign Perfil + Correcoes
 
-**Causa raiz:** A tabela `user_answers` NAO tem politica RLS para DELETE. Quando o `resetSubjectQuestions` chama `.delete()`, a operacao falha silenciosamente porque o banco rejeita a exclusao.
+## 1. Reset Completo de Usuario (Admin)
 
-**Solucao:** Criar migracao adicionando:
-```text
-CREATE POLICY "Users delete own answers"
-  ON public.user_answers FOR DELETE TO authenticated
-  USING (auth.uid() = user_id);
-```
+Criar uma funcao de banco `admin_reset_user` (security definer) que deleta dados das seguintes tabelas para um usuario alvo, preservando nome, email e assinatura:
 
-Alem disso, apos o reset no codigo, tambem limpar o `answeredMap` local (estado da sessao de pratica) para que a UI reflita imediatamente.
+- `user_answers` (respostas)
+- `user_progress` (progresso de aulas)
+- `user_achievements` (conquistas)
+- `review_queue` (fila de revisao)
+- `study_sessions` (sessoes de estudo)
+- `study_trail` (trilha de estudo)
+- `study_plans` (planos de estudo)
+- `simulation_results` (resultados de simulados)
+- `simulations` (simulados)
+- `diagnostic_results` (diagnostico)
+- `activity_logs` (logs de atividade)
+- `essays` (redacoes)
+- Reset `profiles.level_id` para 1 e `diagnostic_completed` para false
 
----
-
-## Bug 2: Questoes da Aula Nao Aparecem
-
-**Analise:** O componente `LessonQuestions` esta presente no codigo (linha 284 do Aulas.tsx), recebendo `selectedTopic` como prop. O componente busca questoes com `topic_id` correspondente. O problema pode ser:
-- Questoes no banco sem `topic_id` preenchido (campo nullable)
-- O componente retorna `null` quando nao encontra questoes
-
-**Solucao:** Manter o componente, mas tambem adicionar um fallback visual quando nao ha questoes ("Nenhuma questao disponivel para este assunto ainda"). Verificar que as questoes cadastradas via admin tenham `topic_id` configurado.
+**No AdminUsuarios.tsx:** Adicionar botao "Resetar Progresso" por usuario, com dialog de confirmacao.
 
 ---
 
-## Feature: Apostila Escrita vs Video Aula (estilo QConcursos)
+## 2. Reset pelo Proprio Aluno (Premium, 1x por mes)
 
-**Como funciona hoje:** A pagina de aula exibe video E conteudo escrito juntos, sem separacao.
+Adicionar tabela ou campo para controlar a data do ultimo reset. Usar a coluna `profiles` com um novo campo `last_reset_at` (timestamp, nullable).
 
-**Nova logica:**
-- Se a aula tem APENAS video (`video_url` preenchido, `content` vazio): mostra so o player de video
-- Se a aula tem APENAS apostila escrita (`content` preenchido, `video_url` vazio): mostra so o texto
-- Se tem AMBOS: mostra tabs seletoras "Video Aula" e "Apostila Escrita" para o usuario escolher
+**Migracao:** Adicionar coluna `last_reset_at` em `profiles`.
 
-**Na lista de aulas:** Badges indicando o que esta disponivel (icone Video, icone Apostila)
+**No Perfil.tsx:** Botao "Recomecar do Zero" visivel apenas para premium. Verificar se `last_reset_at` e null ou tem mais de 30 dias. Chamar a mesma funcao de reset (versao para o proprio usuario, sem precisar de admin).
 
-**No Admin:** O formulario ja suporta ambos os campos. Adicionar labels mais claros e badges visuais indicando quais formatos a aula possui. Adicionar toggle/checkboxes para "Tem Apostila Escrita" e "Tem Video Aula" para maior clareza.
+Criar funcao `user_self_reset` (security definer) que:
+- Verifica se o usuario tem plano premium ativo
+- Verifica se `last_reset_at` e null ou > 30 dias atras
+- Executa o mesmo delete das tabelas
+- Atualiza `last_reset_at` para now()
 
 ---
 
-## Pente Fino Geral
+## 3. Melhorar Sistema de Patentes (Levels)
 
-### Questoes.tsx:
-- Apos reset, limpar `answeredMap` para a sessao corrente nao manter estado velho
-- Garantir que ao voltar para lista de materias apos reset, os contadores estejam zerados
+Os requisitos atuais sao muito rigidos:
+- Soldado em Formacao: 5h + 30% acerto
+- Soldado Operacional: 15h + 50%
+- Cabo Academico: 30h + 65%
+- Sargento de Elite: 60h + 80%
+- Oficial de Merito: 100h + 90%
 
-### Aulas.tsx:
-- Melhorar o fallback do LessonQuestions (mostrar mensagem quando nao ha questoes)
-- Tabs de video/apostila no detalhe da aula
+**Novos valores mais acessiveis:**
+- Soldado em Formacao: 1h + 20% acerto
+- Soldado Operacional: 5h + 35%
+- Cabo Academico: 15h + 50%
+- Sargento de Elite: 30h + 65%
+- Oficial de Merito: 50h + 75%
 
-### AdminConteudo.tsx:
-- Labels mais claros: "Apostila Escrita (Markdown)" e "Video Aula"
-- Badges na lista de aulas indicando quais formatos estao disponiveis (APOSTILA, VIDEO)
+Atualizar via INSERT tool (dados, nao schema).
 
-### LessonQuestions.tsx:
-- Adicionar mensagem quando nao ha questoes para o topico
-- Melhorar visual do header para ficar mais convidativo
+Tambem precisa adicionar logica automatica de promocao: no Dashboard ou Perfil, verificar se o usuario atingiu os requisitos do proximo nivel e atualizar `profiles.level_id`.
+
+---
+
+## 4. Melhorar Conquistas
+
+Algumas conquistas tem thresholds altos. Ajustar:
+- `hours_25` de 25 para 15
+- `hours_50` de 50 para 30
+- `hours_100` de 100 para 50
+- `questions_250` de 250 para 150
+- `questions_500` de 500 para 300
+- `streak_60` de 60 para 30
+
+Atualizar via INSERT tool.
+
+---
+
+## 5. Foto de Perfil
+
+A coluna `avatar_url` ja existe em `profiles`. Precisa de:
+
+**Storage:** Ja existe buckets, criar um bucket `avatars` (publico) com politica de upload para usuarios autenticados.
+
+**Perfil.tsx:** Adicionar area de upload de foto com preview circular. Ao selecionar imagem, faz upload para `avatars/{user_id}.jpg`, obtem URL publica e atualiza `profiles.avatar_url`.
+
+**Sidebar, Ranking, etc:** Substituir o icone generico pelo avatar do usuario quando disponivel.
+
+---
+
+## 6. Redesign da Pagina de Perfil
+
+Redesign completo com:
+- Foto de perfil editavel com overlay de camera
+- Secao de dados pessoais mais organizada (nome, email, plano, patente)
+- Cards de estatisticas com design melhorado e cores vibrantes
+- Secao de assinatura com mais detalhes
+- Botao "Recomecar do Zero" (premium only)
+- Historico recente de atividade
+- Layout mais compacto e atraente
+
+---
+
+## 7. Promocao Automatica de Patente
+
+Adicionar logica no Dashboard e/ou Perfil que:
+1. Busca stats do usuario (horas e accuracy)
+2. Compara com os requisitos do proximo nivel
+3. Se atingiu, faz UPDATE em `profiles.level_id`
+4. Mostra toast de parabens
 
 ---
 
 ## Detalhes Tecnicos
 
-### Migracao necessaria:
-- Adicionar politica DELETE em `user_answers` para usuarios autenticados
+### Migracoes necessarias:
+1. Adicionar coluna `last_reset_at` em `profiles`
+2. Criar funcao `admin_reset_user_data` (security definer)
+3. Criar funcao `user_self_reset` (security definer)
+4. Criar bucket `avatars` com RLS
+
+### Dados a atualizar (INSERT tool):
+- Tabela `levels` - novos thresholds
+- Tabela `achievements` - novos thresholds
 
 ### Arquivos a modificar:
-1. **`src/pages/Questoes.tsx`** — Limpar `answeredMap` no reset + fix de estado
-2. **`src/pages/Aulas.tsx`** — Tabs video/apostila no detalhe da aula + badges na timeline
-3. **`src/pages/admin/AdminConteudo.tsx`** — Labels melhorados + badges de formato na lista
-4. **`src/components/LessonQuestions.tsx`** — Fallback visual quando sem questoes
+1. **`src/pages/admin/AdminUsuarios.tsx`** - Botao e dialog de reset
+2. **`src/pages/Perfil.tsx`** - Redesign completo + upload de foto + botao reset
+3. **`src/pages/Dashboard.tsx`** - Logica de auto-promocao de patente
+4. **`src/components/AppSidebar.tsx`** - Mostrar avatar do usuario
+5. **`src/pages/Conquistas.tsx`** - Ajustes menores de sincronizacao
+
+### Fluxo de reset (admin):
+```text
+Admin clica "Resetar" -> Dialog de confirmacao
+  -> supabase.rpc("admin_reset_user_data", { admin_id, target_id })
+  -> Funcao deleta dados de todas as tabelas
+  -> Toast de sucesso -> Refresh lista
+```
+
+### Fluxo de reset (aluno):
+```text
+Aluno clica "Recomecar do Zero" -> Verifica premium + 30 dias
+  -> Dialog de confirmacao com aviso
+  -> supabase.rpc("user_self_reset")
+  -> Funcao verifica elegibilidade + deleta dados
+  -> Toast de sucesso -> Refresh perfil
+```
+
