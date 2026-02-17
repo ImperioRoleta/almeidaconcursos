@@ -249,6 +249,7 @@ export type Database = {
           content: string | null
           created_at: string
           id: string
+          image_url: string | null
           is_premium: boolean | null
           order_index: number | null
           title: string
@@ -260,6 +261,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
           is_premium?: boolean | null
           order_index?: number | null
           title: string
@@ -271,6 +273,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
           is_premium?: boolean | null
           order_index?: number | null
           title?: string
@@ -843,6 +846,7 @@ export type Database = {
           description: string | null
           icon: string | null
           id: string
+          image_url: string | null
           name: string
           order_index: number | null
         }
@@ -851,6 +855,7 @@ export type Database = {
           description?: string | null
           icon?: string | null
           id?: string
+          image_url?: string | null
           name: string
           order_index?: number | null
         }
@@ -859,6 +864,7 @@ export type Database = {
           description?: string | null
           icon?: string | null
           id?: string
+          image_url?: string | null
           name?: string
           order_index?: number | null
         }
@@ -902,6 +908,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          image_url: string | null
           name: string
           order_index: number | null
           subject_id: string
@@ -910,6 +917,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           name: string
           order_index?: number | null
           subject_id: string
@@ -918,6 +926,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           name?: string
           order_index?: number | null
           subject_id?: string
