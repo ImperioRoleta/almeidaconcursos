@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useUserXP } from "@/hooks/useUserXP";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import { Link } from "react-router-dom";
 export default function Perfil() {
   const { user, profile, isAdmin } = useAuth();
   const { isPremium, isTrial, isActive, planLabel, daysLeft } = useSubscription();
+  const { xp } = useUserXP(user?.id);
   const [name, setName] = useState(profile?.name || "");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -232,9 +234,10 @@ export default function Perfil() {
             <Progress value={levelProgress} className="h-3" />
             {nextLevel && (
               <p className="text-[10px] text-muted-foreground">
-                Requisitos: {nextLevel.min_hours}h de estudo • {nextLevel.min_accuracy}% de acerto
+                Requisitos: {nextLevel.min_hours}h de estudo • {nextLevel.min_accuracy}% de acerto • {(nextLevel as any).min_xp || 0} XP
               </p>
             )}
+            <p className="text-[10px] text-primary font-semibold mt-1">Seu XP total: {xp.total} XP</p>
           </div>
         </div>
       </div>
@@ -277,7 +280,7 @@ export default function Perfil() {
           { label: "Questões Resolvidas", value: stats.questions, icon: BarChart3, color: "text-green-400" },
           { label: "Simulados", value: stats.simulations, icon: Trophy, color: "text-[hsl(280,70%,55%)]" },
           { label: "Conquistas", value: `${achievements.unlocked}/${achievements.total}`, icon: Award, color: "text-accent" },
-          { label: "XP Total", value: achievements.xp, icon: Star, color: "text-primary" },
+          { label: "XP Total", value: xp.total, icon: Star, color: "text-primary" },
           { label: "Dias Seguidos", value: `${stats.streak}🔥`, icon: Flame, color: "text-[hsl(25,95%,53%)]" },
         ].map((c, i) => (
           <Card key={i} className="glass-card">

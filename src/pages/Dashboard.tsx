@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import { calculateUserXP } from "@/hooks/useUserXP";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, Target, BookOpen, Award, TrendingUp, BarChart3, Flame, Trophy, Zap } from "lucide-react";
@@ -71,12 +72,17 @@ export default function Dashboard() {
       const totalHours = (sessionsRes.data ?? []).reduce((s, r) => s + (r.duration_seconds || 0), 0) / 3600;
       const answers = answersRes.data ?? [];
       const accuracy = answers.length > 0 ? (answers.filter(a => a.is_correct).length / answers.length) * 100 : 0;
+      const totalXP = await calculateUserXP(user.id);
       const currentOrder = profile.levels?.rank_order || 1;
 
-      // Find highest eligible level
       let bestLevel = currentOrder;
       for (const lv of allLevels) {
-        if (lv.rank_order > currentOrder && totalHours >= (lv.min_hours || 0) && accuracy >= (lv.min_accuracy || 0)) {
+        if (
+          lv.rank_order > currentOrder &&
+          totalHours >= (lv.min_hours || 0) &&
+          accuracy >= (lv.min_accuracy || 0) &&
+          totalXP >= (lv.min_xp || 0)
+        ) {
           bestLevel = Math.max(bestLevel, lv.rank_order);
         }
       }
