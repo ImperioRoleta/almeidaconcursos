@@ -8,9 +8,11 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   Crown, CheckCircle, Clock, Loader2, ExternalLink, ShieldCheck, Sparkles,
-  TicketPercent, X, Tag, ArrowRight,
+  TicketPercent, X, Tag, ArrowRight, ShoppingCart, AlertTriangle,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
+
+const EXPIRATION_MINUTES = 30;
 
 
 interface AppliedCoupon {
@@ -32,7 +34,8 @@ export default function Assinatura() {
   const [couponCode, setCouponCode] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
-
+  const [pendingCheckout, setPendingCheckout] = useState<any>(null);
+  const [checkoutTimeLeft, setCheckoutTimeLeft] = useState(0);
   useEffect(() => {
     if (!user) return;
     const load = async () => {
@@ -46,6 +49,20 @@ export default function Assinatura() {
       settingsRes.data?.forEach((s: any) => { map[s.key] = s.value; });
       setSettings(map);
       setMyRequests(reqRes.data ?? []);
+
+      // Find pending checkout within 30 min
+      const pending = reqRes.data?.find((r: any) => {
+        if (r.status !== "pending") return false;
+        const created = new Date(r.created_at).getTime();
+        const expiresAt = created + EXPIRATION_MINUTES * 60 * 1000;
+        return expiresAt > Date.now();
+      });
+      if (pending) {
+        setPendingCheckout(pending);
+        const created = new Date(pending.created_at).getTime();
+        const remaining = created + EXPIRATION_MINUTES * 60 * 1000 - Date.now();
+        setCheckoutTimeLeft(Math.floor(remaining / 1000));
+      }
     };
     load();
   }, [user]);
@@ -56,6 +73,18 @@ export default function Assinatura() {
     else if (status === "pending") toast.info("Pagamento pendente. Seu acesso será liberado assim que confirmado.");
     else if (status === "rejected") toast.error("Pagamento não aprovado. Tente novamente.");
   }, [searchParams]);
+
+  // Checkout countdown
+  useEffect(() => {
+    if (checkoutTimeLeft <= 0 || !pendingCheckout) return;
+    const interval = setInterval(() => {
+      setCheckoutTimeLeft(prev => {
+        if (prev <= 1) { clearInterval(interval); setPendingCheckout(null); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [pendingCheckout, checkoutTimeLeft]);
 
   const isExpired = subscription?.expire_date && new Date(subscription.expire_date) < new Date();
   const isPremium = subscription?.plan !== "gratuito" && subscription?.plan !== "premium_teste" && subscription?.plan !== "trial" && subscription?.status === "active" && !isExpired;
@@ -229,6 +258,50 @@ export default function Assinatura() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pending checkout banner */}
+      {pendingCheckout && checkoutTimeLeft > 0 && !hasAccess && (
+        <Card className={`border-2 ${checkoutTimeLeft < 300 ? "border-destructive/40 bg-destructive/5" : "border-[hsl(38,92%,50%)]/40 bg-[hsl(38,92%,50%)]/5"}`}>
+          <CardContent className="p-5">
+            <div className="flex items-start gap-4">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${checkoutTimeLeft < 300 ? "bg-destructive/10" : "bg-[hsl(38,92%,50%)]/10"}`}>
+                <ShoppingCart className={`w-6 h-6 ${checkoutTimeLeft < 300 ? "text-destructive" : "text-[hsl(38,92%,50%)]"}`} />
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h3 className="font-heading font-bold text-base">Compra pendente</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {planLabels[pendingCheckout.plan] || pendingCheckout.plan} — R$ {Number(pendingCheckout.amount).toFixed(2).replace(".", ",")}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {checkoutTimeLeft < 300 && <AlertTriangle className="w-4 h-4 text-destructive animate-pulse" />}
+                    <Badge variant="outline" className={`font-mono text-sm px-3 py-1 ${checkoutTimeLeft < 300 ? "border-destructive/30 text-destructive" : "border-[hsl(38,92%,50%)]/30 text-[hsl(38,92%,50%)]"}`}>
+                      <Clock className="w-3.5 h-3.5 mr-1.5" />
+                      {String(Math.floor(checkoutTimeLeft / 60)).padStart(2, "0")}:{String(checkoutTimeLeft % 60).padStart(2, "0")}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="gradient-primary text-primary-foreground"
+                    onClick={() => handleCheckout(pendingCheckout.plan)}
+                    disabled={!!loadingPlan}
+                  >
+                    {loadingPlan ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <ExternalLink className="w-4 h-4 mr-1" />}
+                    Finalizar Pagamento
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Esta oferta expira em {Math.floor(checkoutTimeLeft / 60)} minutos. Após isso, será necessário iniciar uma nova compra.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Upgrade plans */}
       {!hasAccess && (

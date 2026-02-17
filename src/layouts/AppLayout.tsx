@@ -7,6 +7,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { StudyTimerProvider } from "@/contexts/StudyTimerContext";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import ContinueButton from "@/components/ContinueButton";
+import PendingCheckoutBanner from "@/components/PendingCheckoutBanner";
 
 // Focus mode pages where we hide chrome for immersion
 const FOCUS_PAGES = ["/questoes", "/simulados", "/revisoes", "/ia"];
@@ -48,6 +49,7 @@ export default function AppLayout() {
           <MobileBottomNav />
           {/* Continue button (mobile only) */}
           <ContinueButton />
+          <PendingCheckoutBanner />
         </div>
       </SidebarProvider>
     </StudyTimerProvider>

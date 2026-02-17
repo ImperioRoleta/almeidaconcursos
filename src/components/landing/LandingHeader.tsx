@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Shield } from "lucide-react";
+import { Shield, LayoutDashboard } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LandingHeader() {
+  const { user, loading } = useAuth();
+
   return (
     <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 z-50 bg-background/80">
       <div className="container mx-auto flex items-center justify-between py-4 px-4">
@@ -19,12 +22,22 @@ export default function LandingHeader() {
           <a href="#depoimentos" className="hover:text-foreground transition-colors">Depoimentos</a>
         </nav>
         <div className="flex gap-3">
-          <Link to="/login">
-            <Button variant="ghost" size="sm">Entrar</Button>
-          </Link>
-          <Link to="/cadastro">
-            <Button size="sm" className="gradient-primary text-primary-foreground shadow-lg shadow-primary/20">Começar Grátis</Button>
-          </Link>
+          {!loading && user ? (
+            <Link to="/dashboard">
+              <Button size="sm" className="gradient-primary text-primary-foreground shadow-lg shadow-primary/20">
+                <LayoutDashboard className="w-4 h-4 mr-2" /> Dashboard
+              </Button>
+            </Link>
+          ) : (
+            <>
+              <Link to="/login">
+                <Button variant="ghost" size="sm">Entrar</Button>
+              </Link>
+              <Link to="/cadastro">
+                <Button size="sm" className="gradient-primary text-primary-foreground shadow-lg shadow-primary/20">Começar Grátis</Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
