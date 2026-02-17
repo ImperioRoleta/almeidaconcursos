@@ -36,6 +36,8 @@ import {
   Megaphone,
   ScrollText,
   Package,
+  PenLine,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +46,7 @@ const studentItems = [
   { title: "Diagnóstico", url: "/diagnostico", icon: Crosshair, premium: false },
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, premium: false },
   { title: "Aulas", url: "/aulas", icon: BookOpen, premium: false },
+  { title: "Redações", url: "/redacoes", icon: PenLine, premium: false },
   { title: "Questões", url: "/questoes", icon: HelpCircle, premium: false },
   { title: "Simulados", url: "/simulados", icon: FileText, premium: true },
   { title: "Revisões", url: "/revisoes", icon: Brain, premium: false },
@@ -65,6 +68,7 @@ const adminItems = [
   { title: "Pagamentos", url: "/admin/pagamentos", icon: CreditCard },
   { title: "Mercado Pago", url: "/admin/mercadopago", icon: CreditCard },
   { title: "Planos & Cupons", url: "/admin/planos", icon: Package },
+  { title: "Funcionalidades", url: "/admin/funcionalidades", icon: Settings },
   { title: "Notificações", url: "/admin/notificacoes", icon: Megaphone },
   { title: "Logs", url: "/admin/logs", icon: ScrollText },
 ];

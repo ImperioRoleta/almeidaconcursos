@@ -161,6 +161,89 @@ export type Database = {
         }
         Relationships: []
       }
+      essay_themes: {
+        Row: {
+          active_date: string
+          created_at: string
+          created_by: string
+          description: string
+          genre: string
+          id: string
+          motivating_texts: Json | null
+          title: string
+        }
+        Insert: {
+          active_date?: string
+          created_at?: string
+          created_by?: string
+          description: string
+          genre?: string
+          id?: string
+          motivating_texts?: Json | null
+          title: string
+        }
+        Update: {
+          active_date?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          genre?: string
+          id?: string
+          motivating_texts?: Json | null
+          title?: string
+        }
+        Relationships: []
+      }
+      essays: {
+        Row: {
+          content: string
+          corrected_at: string | null
+          correction: Json | null
+          created_at: string
+          id: string
+          score: number | null
+          status: string
+          theme_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          corrected_at?: string | null
+          correction?: Json | null
+          created_at?: string
+          id?: string
+          score?: number | null
+          status?: string
+          theme_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          corrected_at?: string | null
+          correction?: Json | null
+          created_at?: string
+          id?: string
+          score?: number | null
+          status?: string
+          theme_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "essays_theme_id_fkey"
+            columns: ["theme_id"]
+            isOneToOne: false
+            referencedRelation: "essay_themes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lessons: {
         Row: {
           content: string | null
@@ -171,6 +254,7 @@ export type Database = {
           title: string
           topic_id: string
           updated_at: string
+          video_url: string | null
         }
         Insert: {
           content?: string | null
@@ -181,6 +265,7 @@ export type Database = {
           title: string
           topic_id: string
           updated_at?: string
+          video_url?: string | null
         }
         Update: {
           content?: string | null
@@ -191,6 +276,7 @@ export type Database = {
           title?: string
           topic_id?: string
           updated_at?: string
+          video_url?: string | null
         }
         Relationships: [
           {

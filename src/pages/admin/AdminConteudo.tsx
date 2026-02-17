@@ -20,6 +20,9 @@ export default function AdminConteudo() {
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newContent, setNewContent] = useState("");
+  const [newVideoUrl, setNewVideoUrl] = useState("");
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editMode, setEditMode] = useState<"subject" | "topic" | "lesson">("subject");
 
@@ -55,9 +58,32 @@ export default function AdminConteudo() {
 
   const addLesson = async () => {
     if (!newName.trim() || !selectedTopic) return;
-    await supabase.from("lessons").insert({ title: newName, content: newContent, topic_id: selectedTopic });
+    setUploading(true);
+    let videoUrl = newVideoUrl.trim();
+
+    // Handle video file upload
+    if (videoFile) {
+      const ext = videoFile.name.split(".").pop();
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from("lesson-videos").upload(path, videoFile);
+      if (uploadErr) {
+        toast.error("Erro ao enviar vídeo: " + uploadErr.message);
+        setUploading(false);
+        return;
+      }
+      const { data: urlData } = supabase.storage.from("lesson-videos").getPublicUrl(path);
+      videoUrl = urlData.publicUrl;
+    }
+
+    await supabase.from("lessons").insert({
+      title: newName,
+      content: newContent,
+      topic_id: selectedTopic,
+      video_url: videoUrl || null,
+    } as any);
     toast.success("Aula criada");
-    setNewName(""); setNewContent(""); setDialogOpen(false);
+    setNewName(""); setNewContent(""); setNewVideoUrl(""); setVideoFile(null); setDialogOpen(false);
+    setUploading(false);
     supabase.from("lessons").select("*").eq("topic_id", selectedTopic).order("order_index").then(({ data }) => setLessons(data ?? []));
   };
 
@@ -71,7 +97,7 @@ export default function AdminConteudo() {
 
   const openAdd = (mode: "subject" | "topic" | "lesson") => {
     setEditMode(mode);
-    setNewName(""); setNewDesc(""); setNewContent("");
+    setNewName(""); setNewDesc(""); setNewContent(""); setNewVideoUrl(""); setVideoFile(null);
     setDialogOpen(true);
   };
 
@@ -95,8 +121,18 @@ export default function AdminConteudo() {
           <div className="space-y-4">
             <div><Label>{editMode === "lesson" ? "Título" : "Nome"}</Label><Input value={newName} onChange={e => setNewName(e.target.value)} /></div>
             {editMode !== "lesson" && <div><Label>Descrição</Label><Input value={newDesc} onChange={e => setNewDesc(e.target.value)} /></div>}
-            {editMode === "lesson" && <div><Label>Conteúdo</Label><Textarea value={newContent} onChange={e => setNewContent(e.target.value)} rows={8} /></div>}
-            <Button onClick={handleSave} className="w-full gradient-primary text-primary-foreground">Salvar</Button>
+            {editMode === "lesson" && <div><Label>Conteúdo (Markdown)</Label><Textarea value={newContent} onChange={e => setNewContent(e.target.value)} rows={8} /></div>}
+            {editMode === "lesson" && (
+              <div className="space-y-3 border-t border-border pt-3">
+                <Label className="text-sm font-semibold">Vídeo da Aula (opcional)</Label>
+                <Input value={newVideoUrl} onChange={e => setNewVideoUrl(e.target.value)} placeholder="URL do YouTube, Vimeo ou link direto" />
+                <p className="text-xs text-muted-foreground">Ou faça upload de um arquivo de vídeo:</p>
+                <Input type="file" accept="video/*" onChange={e => setVideoFile(e.target.files?.[0] || null)} />
+              </div>
+            )}
+            <Button onClick={handleSave} disabled={uploading} className="w-full gradient-primary text-primary-foreground">
+              {uploading ? "Enviando..." : "Salvar"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -151,7 +187,10 @@ export default function AdminConteudo() {
             {lessons.map(l => (
               <Card key={l.id} className="glass-card">
                 <CardContent className="p-4 flex items-center justify-between">
-                  <p className="font-medium">{l.title}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{l.title}</p>
+                    {(l as any).video_url && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">VÍDEO</span>}
+                  </div>
                   <Button variant="ghost" size="icon" onClick={() => deleteItem("lessons", l.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                 </CardContent>
               </Card>

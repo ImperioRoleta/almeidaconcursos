@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, ChevronRight, CheckCircle, Lock } from "lucide-react";
+import { BookOpen, ChevronRight, CheckCircle, Lock, Volume2, VolumeX, Video, Pause, Play } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -19,6 +19,20 @@ export default function Aulas() {
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<any | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [videoEnabled, setVideoEnabled] = useState(true);
+  const synthRef = useRef(window.speechSynthesis);
+
+  // Load feature toggles
+  useEffect(() => {
+    supabase.from("platform_settings").select("key, value").in("key", ["tts_enabled", "video_lessons_enabled"]).then(({ data }) => {
+      data?.forEach(s => {
+        if (s.key === "tts_enabled") setTtsEnabled(s.value === "true");
+        if (s.key === "video_lessons_enabled") setVideoEnabled(s.value === "true");
+      });
+    });
+  }, []);
 
   useEffect(() => {
     supabase.from("subjects").select("*").order("order_index").then(({ data }) => setSubjects(data ?? []));
@@ -59,11 +73,83 @@ export default function Aulas() {
     setCompletedIds(prev => new Set(prev).add(lessonId));
   };
 
+  const stopSpeaking = useCallback(() => {
+    synthRef.current.cancel();
+    setIsSpeaking(false);
+  }, []);
+
+  const toggleTTS = useCallback(() => {
+    if (isSpeaking) {
+      stopSpeaking();
+      return;
+    }
+    if (!selectedLesson?.content) return;
+    // Strip markdown for cleaner speech
+    const plainText = selectedLesson.content
+      .replace(/#{1,6}\s/g, "")
+      .replace(/\*{1,2}(.*?)\*{1,2}/g, "$1")
+      .replace(/\[.*?\]\(.*?\)/g, "")
+      .replace(/[`~>]/g, "")
+      .replace(/\n{2,}/g, ". ");
+    const utterance = new SpeechSynthesisUtterance(plainText);
+    utterance.lang = "pt-BR";
+    utterance.rate = 0.95;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    synthRef.current.speak(utterance);
+    setIsSpeaking(true);
+  }, [isSpeaking, selectedLesson, stopSpeaking]);
+
+  // Stop TTS on lesson change
+  useEffect(() => { return () => { synthRef.current.cancel(); }; }, [selectedLesson]);
+
+  const getVideoEmbed = (url: string) => {
+    if (!url) return null;
+    // YouTube
+    const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+    // Vimeo
+    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    // Direct URL (mp4 etc) - return null to use <video> tag
+    return null;
+  };
+
   if (selectedLesson) {
+    const embedUrl = selectedLesson.video_url ? getVideoEmbed(selectedLesson.video_url) : null;
+    const isDirectVideo = selectedLesson.video_url && !embedUrl;
+
     return (
       <div className="space-y-6 animate-fade-in max-w-3xl">
-        <Button variant="ghost" onClick={() => setSelectedLesson(null)} className="text-muted-foreground">← Voltar</Button>
+        <Button variant="ghost" onClick={() => { setSelectedLesson(null); stopSpeaking(); }} className="text-muted-foreground">← Voltar</Button>
         <h1 className="font-heading text-2xl font-bold">{selectedLesson.title}</h1>
+
+        {/* Video player */}
+        {videoEnabled && selectedLesson.video_url && (
+          <div className="rounded-xl overflow-hidden border border-border bg-black aspect-video">
+            {embedUrl ? (
+              <iframe
+                src={embedUrl}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title={selectedLesson.title}
+              />
+            ) : (
+              <video controls className="w-full h-full" src={selectedLesson.video_url}>
+                Seu navegador não suporta vídeos.
+              </video>
+            )}
+          </div>
+        )}
+
+        {/* TTS button */}
+        {ttsEnabled && selectedLesson.content && (
+          <Button variant="outline" size="sm" onClick={toggleTTS} className="gap-2">
+            {isSpeaking ? <><VolumeX className="w-4 h-4" /> Parar Narração</> : <><Volume2 className="w-4 h-4" /> Ouvir Aula</>}
+          </Button>
+        )}
+
         <div className="prose prose-invert prose-lg max-w-none glass-card p-8 leading-relaxed
           prose-headings:font-heading prose-headings:text-foreground prose-headings:font-bold
           prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg

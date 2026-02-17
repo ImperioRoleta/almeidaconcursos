@@ -10,6 +10,7 @@ import Cadastro from "./pages/Cadastro";
 import AppLayout from "./layouts/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Aulas from "./pages/Aulas";
+import Redacoes from "./pages/Redacoes";
 import Questoes from "./pages/Questoes";
 import Simulados from "./pages/Simulados";
 import IAChat from "./pages/IAChat";
@@ -28,6 +29,7 @@ import AdminNotificacoes from "./pages/admin/AdminNotificacoes";
 import AdminLogs from "./pages/admin/AdminLogs";
 import AdminPlanos from "./pages/admin/AdminPlanos";
 import AdminMercadoPago from "./pages/admin/AdminMercadoPago";
+import AdminFuncionalidades from "./pages/admin/AdminFuncionalidades";
 import Conquistas from "./pages/Conquistas";
 import Assinatura from "./pages/Assinatura";
 import Diagnostico from "./pages/Diagnostico";
@@ -52,6 +54,7 @@ const App = () => (
               <Route path="/diagnostico" element={<Diagnostico />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/aulas" element={<Aulas />} />
+              <Route path="/redacoes" element={<Redacoes />} />
               <Route path="/questoes" element={<Questoes />} />
               <Route path="/simulados" element={<Simulados />} />
               <Route path="/ia" element={<IAChat />} />
@@ -72,6 +75,7 @@ const App = () => (
               <Route path="/admin/logs" element={<AdminGuard><AdminLogs /></AdminGuard>} />
               <Route path="/admin/planos" element={<AdminGuard><AdminPlanos /></AdminGuard>} />
               <Route path="/admin/mercadopago" element={<AdminGuard><AdminMercadoPago /></AdminGuard>} />
+              <Route path="/admin/funcionalidades" element={<AdminGuard><AdminFuncionalidades /></AdminGuard>} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

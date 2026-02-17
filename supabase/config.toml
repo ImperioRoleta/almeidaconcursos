@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.ai-tutor]
 verify_jwt = false
+
+[functions.ai-correct-essay]
+verify_jwt = false
+
+[functions.ai-generate-theme]
+verify_jwt = false
