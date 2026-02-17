@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
+import LessonQuestions from "@/components/LessonQuestions";
 
 export default function Aulas() {
   const { user } = useAuth();
@@ -278,6 +279,9 @@ export default function Aulas() {
             <p className="text-muted-foreground italic">Conteúdo da aula será adicionado em breve.</p>
           )}
         </div>
+
+        {/* Inline questions for this topic */}
+        {selectedTopic && <LessonQuestions topicId={selectedTopic} />}
 
         <div className="flex items-center justify-between gap-3 flex-wrap">
           {!completedIds.has(selectedLesson.id) ? (
