@@ -31,11 +31,13 @@ import {
   Award,
   CreditCard,
   Lock,
+  Crosshair,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 const studentItems = [
+  { title: "Diagnóstico", url: "/diagnostico", icon: Crosshair, premium: false },
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, premium: false },
   { title: "Aulas", url: "/aulas", icon: BookOpen, premium: false },
   { title: "Questões", url: "/questoes", icon: HelpCircle, premium: false },

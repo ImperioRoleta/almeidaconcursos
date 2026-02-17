@@ -74,6 +74,45 @@ export type Database = {
         }
         Relationships: []
       }
+      diagnostic_results: {
+        Row: {
+          completed_at: string
+          id: string
+          recommendations: Json | null
+          score: number | null
+          strong_subjects: string[] | null
+          subject_scores: Json
+          total_correct: number
+          total_questions: number
+          user_id: string
+          weak_subjects: string[] | null
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          recommendations?: Json | null
+          score?: number | null
+          strong_subjects?: string[] | null
+          subject_scores?: Json
+          total_correct?: number
+          total_questions?: number
+          user_id: string
+          weak_subjects?: string[] | null
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          recommendations?: Json | null
+          score?: number | null
+          strong_subjects?: string[] | null
+          subject_scores?: Json
+          total_correct?: number
+          total_questions?: number
+          user_id?: string
+          weak_subjects?: string[] | null
+        }
+        Relationships: []
+      }
       lessons: {
         Row: {
           content: string | null
@@ -212,6 +251,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          diagnostic_completed: boolean | null
           id: string
           level_id: number | null
           name: string
@@ -221,6 +261,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          diagnostic_completed?: boolean | null
           id?: string
           level_id?: number | null
           name?: string
@@ -230,6 +271,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          diagnostic_completed?: boolean | null
           id?: string
           level_id?: number | null
           name?: string

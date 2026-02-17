@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,12 +14,29 @@ import UpgradePrompt from "@/components/UpgradePrompt";
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({ hours: 0, accuracy: 0, lessonsCompleted: 0, questionsAnswered: 0, streak: 0 });
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [subjectStats, setSubjectStats] = useState<any[]>([]);
   const [subscription, setSubscription] = useState<any>(null);
   const [achievementStats, setAchievementStats] = useState({ total: 0, unlocked: 0 });
   const [recentAchievements, setRecentAchievements] = useState<any[]>([]);
+
+  // Redirect new users to diagnostic
+  useEffect(() => {
+    if (!user) return;
+    const checkDiagnostic = async () => {
+      const { data } = await supabase
+        .from("diagnostic_results")
+        .select("id")
+        .eq("user_id", user.id)
+        .limit(1);
+      if (!data || data.length === 0) {
+        navigate("/diagnostico", { replace: true });
+      }
+    };
+    checkDiagnostic();
+  }, [user, navigate]);
 
   useEffect(() => {
     if (!user) return;
