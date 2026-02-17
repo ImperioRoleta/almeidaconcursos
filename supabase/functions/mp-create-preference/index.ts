@@ -17,16 +17,27 @@ serve(async (req) => {
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+    // Auth validation using getClaims
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Unauthorized");
+    if (!authHeader?.startsWith("Bearer ")) {
+      throw new Error("Unauthorized: Missing token");
+    }
 
+    const token = authHeader.replace("Bearer ", "");
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
-    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) throw new Error("Unauthorized");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error("Claims error:", claimsError);
+      throw new Error("Unauthorized: Invalid token");
+    }
+
+    const userId = claimsData.claims.sub as string;
+    const userEmail = claimsData.claims.email as string;
+
+    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { plan, coupon_code } = await req.json();
     if (!plan || !["premium_mensal", "premium_anual"].includes(plan)) {
@@ -68,22 +79,18 @@ serve(async (req) => {
         throw new Error("Cupom inválido ou não encontrado");
       }
 
-      // Check expiration
       if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
         throw new Error("Este cupom já expirou");
       }
 
-      // Check max uses
       if (coupon.max_uses && coupon.current_uses >= coupon.max_uses) {
         throw new Error("Este cupom já atingiu o limite de usos");
       }
 
-      // Check applicable plans
       if (coupon.applicable_plans && coupon.applicable_plans.length > 0 && !coupon.applicable_plans.includes(plan)) {
         throw new Error("Este cupom não é válido para este plano");
       }
 
-      // Apply discount
       if (coupon.discount_type === "percentage") {
         finalPrice = finalPrice * (1 - coupon.discount_value / 100);
       } else {
@@ -92,7 +99,6 @@ serve(async (req) => {
       finalPrice = Math.round(finalPrice * 100) / 100;
       appliedCouponCode = coupon.code;
 
-      // Increment usage
       await adminClient.from("coupons").update({
         current_uses: coupon.current_uses + 1,
       }).eq("id", coupon.id);
@@ -100,9 +106,9 @@ serve(async (req) => {
 
     const baseUrl = req.headers.get("origin") || "https://almeidaconcursos.lovable.app";
 
-    // Create payment request record
-    const { data: paymentReq, error: insertError } = await supabase.from("payment_requests").insert({
-      user_id: user.id,
+    // Create payment request using admin client (avoids RLS issues)
+    const { data: paymentReq, error: insertError } = await adminClient.from("payment_requests").insert({
+      user_id: userId,
       plan,
       status: "pending",
       amount: finalPrice,
@@ -127,7 +133,7 @@ serve(async (req) => {
           unit_price: finalPrice,
           currency_id: "BRL",
         }],
-        payer: { email: user.email },
+        payer: { email: userEmail },
         back_urls: {
           success: `${baseUrl}/assinatura?status=approved`,
           failure: `${baseUrl}/assinatura?status=rejected`,
@@ -137,7 +143,7 @@ serve(async (req) => {
         external_reference: paymentReq.id,
         notification_url: `${SUPABASE_URL}/functions/v1/mp-webhook`,
         metadata: {
-          user_id: user.id,
+          user_id: userId,
           plan,
           payment_request_id: paymentReq.id,
           days: planInfo.days,

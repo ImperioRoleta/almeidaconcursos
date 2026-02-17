@@ -63,6 +63,7 @@ const adminItems = [
   { title: "IA Admin", url: "/admin/ia", icon: MessageSquare },
   { title: "Assinaturas", url: "/admin/assinaturas", icon: Crown },
   { title: "Pagamentos", url: "/admin/pagamentos", icon: CreditCard },
+  { title: "Mercado Pago", url: "/admin/mercadopago", icon: CreditCard },
   { title: "Planos & Cupons", url: "/admin/planos", icon: Package },
   { title: "Notificações", url: "/admin/notificacoes", icon: Megaphone },
   { title: "Logs", url: "/admin/logs", icon: ScrollText },

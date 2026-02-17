@@ -12,8 +12,6 @@ import {
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
-const VITE_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const VITE_SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 interface AppliedCoupon {
   code: string;
@@ -133,24 +131,17 @@ export default function Assinatura() {
     if (!user) return;
     setLoadingPlan(plan);
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-
       const body: any = { plan };
       if (appliedCoupon) body.coupon_code = appliedCoupon.code;
 
-      const res = await fetch(`${VITE_SUPABASE_URL}/functions/v1/mp-create-preference`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          apikey: VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify(body),
+      const { data, error } = await supabase.functions.invoke("mp-create-preference", {
+        body,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro ao criar pagamento");
+      if (error) throw new Error(error.message || "Erro ao criar pagamento");
+      if (data?.error) throw new Error(data.error);
+      if (!data?.init_point) throw new Error("Resposta inválida do servidor");
+      
       window.location.href = data.init_point;
     } catch (error: any) {
       toast.error(error.message || "Erro ao processar pagamento");
