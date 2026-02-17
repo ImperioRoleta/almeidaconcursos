@@ -15,18 +15,20 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Unauthorized");
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
+    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) throw new Error("Unauthorized");
 
-    const { plan } = await req.json();
+    const { plan, coupon_code } = await req.json();
     if (!plan || !["premium_mensal", "premium_anual"].includes(plan)) {
       throw new Error("Invalid plan");
     }
@@ -49,7 +51,53 @@ serve(async (req) => {
       },
     };
 
-    const planInfo = priceMap[plan];
+    let planInfo = priceMap[plan];
+    let finalPrice = planInfo.price;
+    let appliedCouponCode: string | null = null;
+
+    // Validate and apply coupon
+    if (coupon_code) {
+      const { data: coupon, error: couponErr } = await adminClient
+        .from("coupons")
+        .select("*")
+        .eq("code", coupon_code.toUpperCase().trim())
+        .eq("is_active", true)
+        .single();
+
+      if (couponErr || !coupon) {
+        throw new Error("Cupom inválido ou não encontrado");
+      }
+
+      // Check expiration
+      if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
+        throw new Error("Este cupom já expirou");
+      }
+
+      // Check max uses
+      if (coupon.max_uses && coupon.current_uses >= coupon.max_uses) {
+        throw new Error("Este cupom já atingiu o limite de usos");
+      }
+
+      // Check applicable plans
+      if (coupon.applicable_plans && coupon.applicable_plans.length > 0 && !coupon.applicable_plans.includes(plan)) {
+        throw new Error("Este cupom não é válido para este plano");
+      }
+
+      // Apply discount
+      if (coupon.discount_type === "percentage") {
+        finalPrice = finalPrice * (1 - coupon.discount_value / 100);
+      } else {
+        finalPrice = Math.max(0, finalPrice - coupon.discount_value);
+      }
+      finalPrice = Math.round(finalPrice * 100) / 100;
+      appliedCouponCode = coupon.code;
+
+      // Increment usage
+      await adminClient.from("coupons").update({
+        current_uses: coupon.current_uses + 1,
+      }).eq("id", coupon.id);
+    }
+
     const baseUrl = req.headers.get("origin") || "https://almeidaconcursos.lovable.app";
 
     // Create payment request record
@@ -57,7 +105,8 @@ serve(async (req) => {
       user_id: user.id,
       plan,
       status: "pending",
-      amount: planInfo.price,
+      amount: finalPrice,
+      admin_notes: appliedCouponCode ? `Cupom aplicado: ${appliedCouponCode}` : null,
     }).select().single();
 
     if (insertError) throw new Error("Failed to create payment request: " + insertError.message);
@@ -71,9 +120,11 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         items: [{
-          title: planInfo.title,
+          title: appliedCouponCode
+            ? `${planInfo.title} (Cupom: ${appliedCouponCode})`
+            : planInfo.title,
           quantity: 1,
-          unit_price: planInfo.price,
+          unit_price: finalPrice,
           currency_id: "BRL",
         }],
         payer: { email: user.email },
@@ -90,6 +141,7 @@ serve(async (req) => {
           plan,
           payment_request_id: paymentReq.id,
           days: planInfo.days,
+          coupon_code: appliedCouponCode,
         },
       }),
     });
@@ -103,6 +155,8 @@ serve(async (req) => {
       init_point: mpData.init_point,
       sandbox_init_point: mpData.sandbox_init_point,
       preference_id: mpData.id,
+      final_price: finalPrice,
+      coupon_applied: appliedCouponCode,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
