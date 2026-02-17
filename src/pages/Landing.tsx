@@ -3,6 +3,7 @@ import LandingHero from "@/components/landing/LandingHero";
 import LandingMethod from "@/components/landing/LandingMethod";
 import LandingFeatures from "@/components/landing/LandingFeatures";
 import LandingPlans from "@/components/landing/LandingPlans";
+import LandingPromotions from "@/components/landing/LandingPromotions";
 import LandingTestimonials from "@/components/landing/LandingTestimonials";
 import LandingCTA from "@/components/landing/LandingCTA";
 
@@ -14,6 +15,7 @@ export default function Landing() {
       <LandingFeatures />
       <LandingMethod />
       <LandingPlans />
+      <LandingPromotions />
       <LandingTestimonials />
       <LandingCTA />
 
