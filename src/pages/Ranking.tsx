@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy, Medal, Clock, Target, Flame, Crown, User, BookOpen, Lock } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -204,9 +205,12 @@ export default function Ranking() {
                 return (
                   <Card key={rank} className={`glass-card overflow-hidden text-center ${isCenter ? "lg:-mt-4 border-accent/30" : ""} ${entry.user_id === user?.id ? "ring-1 ring-primary" : ""}`}>
                     <CardContent className={`p-4 ${isCenter ? "pt-6" : "pt-5"}`}>
-                      <div className={`w-12 h-12 mx-auto rounded-full bg-gradient-to-br ${podiumColors[rank]} flex items-center justify-center mb-3 ${isCenter ? "w-16 h-16" : ""}`}>
-                        <PodiumIcon className={`text-primary-foreground ${isCenter ? "w-7 h-7" : "w-5 h-5"}`} />
-                      </div>
+                      <Avatar className={`mx-auto mb-3 ${isCenter ? "w-16 h-16" : "w-12 h-12"}`}>
+                        {entry.avatar_url ? <AvatarImage src={entry.avatar_url} alt={entry.name} /> : null}
+                        <AvatarFallback className={`bg-gradient-to-br ${podiumColors[rank]} text-primary-foreground`}>
+                          <PodiumIcon className={isCenter ? "w-7 h-7" : "w-5 h-5"} />
+                        </AvatarFallback>
+                      </Avatar>
                       <p className="font-heading font-bold text-sm truncate">{entry.name || "Aluno"}</p>
                       <Badge variant="outline" className="text-[10px] mt-1 border-accent/30 text-accent">{entry.level_name}</Badge>
                       <div className="mt-3 space-y-1 text-xs text-muted-foreground">
@@ -239,9 +243,12 @@ export default function Ranking() {
                       <span className={`font-mono font-bold w-8 text-center text-sm ${i < 3 ? "text-accent" : "text-muted-foreground"}`}>
                         {i + 1}º
                       </span>
-                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <User className="w-4 h-4 text-primary" />
-                      </div>
+                      <Avatar className="w-9 h-9 shrink-0">
+                        {entry.avatar_url ? <AvatarImage src={entry.avatar_url} alt={entry.name} /> : null}
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                          {(entry.name || "A").charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                       <div className="flex-1 min-w-0">
                         <p className={`font-medium text-sm truncate ${isMe ? "text-primary" : ""}`}>
                           {entry.name || "Aluno"} {isMe && <span className="text-xs text-muted-foreground">(você)</span>}
@@ -265,9 +272,12 @@ export default function Ranking() {
                       {sorted.slice(FREE_VISIBLE_LIMIT, FREE_VISIBLE_LIMIT + 2).map((entry, i) => (
                         <div key={entry.user_id} className="flex items-center gap-4 px-4 py-3">
                           <span className="font-mono font-bold w-8 text-center text-sm text-muted-foreground">{FREE_VISIBLE_LIMIT + i + 1}º</span>
-                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                            <User className="w-4 h-4 text-primary" />
-                          </div>
+                          <Avatar className="w-9 h-9 shrink-0">
+                            {entry.avatar_url ? <AvatarImage src={entry.avatar_url} alt={entry.name} /> : null}
+                            <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                              {(entry.name || "A").charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
                           <div className="flex-1"><p className="font-medium text-sm">{entry.name}</p></div>
                         </div>
                       ))}
