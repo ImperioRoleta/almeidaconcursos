@@ -235,6 +235,18 @@ export default function Questoes() {
     }
   };
 
+  const resetSubjectQuestions = async (subjectId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) return;
+    const { data: qs } = await supabase.from("questions").select("id").eq("subject_id", subjectId);
+    if (!qs || qs.length === 0) return;
+    const qIds = qs.map(q => q.id);
+    await supabase.from("user_answers").delete().eq("user_id", user.id).in("question_id", qIds);
+    setAnsweredBySubject(prev => ({ ...prev, [subjectId]: 0 }));
+    setCorrectBySubject(prev => ({ ...prev, [subjectId]: 0 }));
+    toast.success("Progresso resetado! Você pode recomeçar do zero.");
+  };
+
   // ─── Breadcrumb ───
   const Breadcrumb = () => {
     const subjectName = subjects.find(s => s.id === selectedSubject)?.name;
@@ -338,6 +350,16 @@ export default function Questoes() {
                           <span className={`font-semibold font-mono ${isComplete ? "text-[hsl(var(--chart-4))]" : "text-primary"}`}>{pct}%</span>
                         </div>
                         <Progress value={pct} className="h-2" />
+                        {isComplete && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full mt-1 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+                            onClick={(e) => resetSubjectQuestions(s.id, e)}
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" /> Recomeçar Questões
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
