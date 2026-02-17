@@ -33,6 +33,7 @@ import {
   Lock,
   Crosshair,
   Brain,
+  Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +61,7 @@ const adminItems = [
   { title: "IA Admin", url: "/admin/ia", icon: MessageSquare },
   { title: "Assinaturas", url: "/admin/assinaturas", icon: Crown },
   { title: "Pagamentos", url: "/admin/pagamentos", icon: CreditCard },
+  { title: "Notificações", url: "/admin/notificacoes", icon: Megaphone },
 ];
 
 export function AppSidebar() {
