@@ -34,6 +34,7 @@ import {
   Crosshair,
   Brain,
   Megaphone,
+  ScrollText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +63,7 @@ const adminItems = [
   { title: "Assinaturas", url: "/admin/assinaturas", icon: Crown },
   { title: "Pagamentos", url: "/admin/pagamentos", icon: CreditCard },
   { title: "Notificações", url: "/admin/notificacoes", icon: Megaphone },
+  { title: "Logs", url: "/admin/logs", icon: ScrollText },
 ];
 
 export function AppSidebar() {

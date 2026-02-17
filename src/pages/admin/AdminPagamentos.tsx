@@ -35,6 +35,7 @@ export default function AdminPagamentos() {
     } else {
       setAllRequests([]);
     }
+
     setLoading(false);
   };
 
@@ -65,8 +66,10 @@ export default function AdminPagamentos() {
     rejected: { label: "Rejeitado", color: "bg-destructive/10 text-destructive" },
   };
 
+  const paidRequests = allRequests.filter(r => r.status === "approved" && r.mp_payment_id);
+  const manualRequests = allRequests.filter(r => r.status === "approved" && !r.mp_payment_id);
   const approvedCount = allRequests.filter(r => r.status === "approved").length;
-  const totalRevenue = allRequests.filter(r => r.status === "approved" && r.amount).reduce((sum, r) => sum + Number(r.amount), 0);
+  const totalRevenue = paidRequests.reduce((sum, r) => sum + Number(r.amount || 0), 0);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -75,7 +78,7 @@ export default function AdminPagamentos() {
           <h1 className="font-heading text-2xl font-bold flex items-center gap-2">
             <CreditCard className="w-6 h-6 text-primary" /> Pagamentos
           </h1>
-          <p className="text-muted-foreground text-sm">Mercado Pago integrado • Ativação automática</p>
+          <p className="text-muted-foreground text-sm">Mercado Pago integrado • Apenas pagamentos reais contam como receita</p>
         </div>
         <Button onClick={saveSettings} disabled={saving} className="gradient-primary text-primary-foreground">
           <Save className="w-4 h-4 mr-2" /> {saving ? "Salvando..." : "Salvar Preços"}
@@ -112,8 +115,11 @@ export default function AdminPagamentos() {
               <DollarSign className="w-5 h-5 text-accent" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Receita Total</p>
+              <p className="text-xs text-muted-foreground">Receita Real (MP)</p>
               <p className="text-xl font-heading font-bold font-mono">R$ {totalRevenue.toFixed(2).replace(".", ",")}</p>
+              {manualRequests.length > 0 && (
+                <p className="text-[10px] text-muted-foreground">{manualRequests.length} concessão(ões) manual(is) não contabilizada(s)</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -170,6 +176,7 @@ export default function AdminPagamentos() {
                           {req.amount && ` • R$ ${Number(req.amount).toFixed(2)}`}
                           {` • ${new Date(req.created_at).toLocaleDateString("pt-BR")}`}
                           {req.mp_payment_id && ` • MP #${req.mp_payment_id}`}
+                          {!req.mp_payment_id && req.status === "approved" && " • Concessão manual"}
                         </p>
                       </div>
                     </div>

@@ -6,12 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   CalendarDays, Sparkles, Loader2, CheckCircle2, Circle, Clock,
   Target, Trophy, Flame, ChevronRight, Plus, Trash2, RotateCcw,
-  BookOpen, Brain, Zap
+  BookOpen, Brain, Zap, Route
 } from "lucide-react";
+import StudyTrail from "@/components/StudyTrail";
 
 type DayTask = {
   id: string;
@@ -43,7 +45,35 @@ type StudyPlan = {
 export default function PlanoEstudos() {
   return (
     <PremiumGate feature="Plano de Estudos">
-      <PlanoEstudosContent />
+      <div className="space-y-6 animate-fade-in">
+        <Tabs defaultValue="plano" className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="plano" className="gap-2">
+              <CalendarDays className="w-4 h-4" /> Plano de Estudos
+            </TabsTrigger>
+            <TabsTrigger value="trilha" className="gap-2">
+              <Route className="w-4 h-4" /> Trilha de Estudos
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="plano" className="mt-6">
+            <PlanoEstudosContent />
+          </TabsContent>
+          <TabsContent value="trilha" className="mt-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shadow-lg">
+                  <Route className="w-7 h-7 text-primary" />
+                </div>
+                <div>
+                  <h1 className="font-heading text-2xl font-bold">Trilha de Estudos</h1>
+                  <p className="text-muted-foreground text-sm">Siga a sequência: Aula → Questões → Revisão → Simulado</p>
+                </div>
+              </div>
+              <StudyTrail />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
     </PremiumGate>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, BookOpen, HelpCircle, FileText, Crown, TrendingUp, Activity, Trophy, AlertTriangle, DollarSign, CreditCard, Clock } from "lucide-react";
+import { Users, BookOpen, HelpCircle, FileText, Crown, TrendingUp, Activity, Trophy, AlertTriangle, DollarSign, CreditCard, Clock, ScrollText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,10 +38,13 @@ export default function AdminDashboard() {
       const week = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
       const expiringSoon = subsData.filter(s => s.expire_date && new Date(s.expire_date) <= week && new Date(s.expire_date) >= now).length;
 
-      // Revenue estimate
-      const monthlyCount = subsData.filter(s => s.plan === "premium_mensal" && s.status === "active").length;
-      const annualCount = subsData.filter(s => s.plan === "premium_anual" && s.status === "active").length;
-      setRevenueEstimate({ monthly: monthlyCount * 39.90, annual: annualCount * 29.90 });
+      // Revenue estimate — only count real paid subscriptions (not manual/test grants)
+      // We check payment_requests with mp_payment_id to know who actually paid
+      const { data: paidPayments } = await supabase.from("payment_requests").select("plan, amount").eq("status", "approved").not("mp_payment_id", "is", null);
+      const paidRevenue = (paidPayments ?? []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const monthlyPaid = (paidPayments ?? []).filter(p => p.plan === "premium_mensal").reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const annualPaid = (paidPayments ?? []).filter(p => p.plan === "premium_anual").reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      setRevenueEstimate({ monthly: monthlyPaid, annual: annualPaid });
 
       setStats({
         users: u.count ?? 0,
@@ -115,21 +118,26 @@ export default function AdminDashboard() {
               <DollarSign className="w-6 h-6 text-background" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Receita Mensal Estimada</p>
+              <p className="text-sm text-muted-foreground">Receita Real (pagamentos MP)</p>
               <p className="text-2xl font-heading font-bold font-mono text-accent">
                 R$ {totalRevenue.toFixed(2).replace(".", ",")}
               </p>
             </div>
           </div>
-          <div className="flex gap-6 text-sm">
+          <div className="flex gap-6 text-sm flex-wrap">
             <div>
-              <p className="text-muted-foreground">Premium Mensal</p>
+              <p className="text-muted-foreground">Via Mensal</p>
               <p className="font-mono font-semibold">R$ {revenueEstimate.monthly.toFixed(2).replace(".", ",")}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">Premium Anual</p>
+              <p className="text-muted-foreground">Via Anual</p>
               <p className="font-mono font-semibold">R$ {revenueEstimate.annual.toFixed(2).replace(".", ",")}</p>
             </div>
+            <Link to="/admin/logs" className="self-center">
+              <Button variant="outline" size="sm" className="gap-1 text-xs">
+                <ScrollText className="w-3.5 h-3.5" /> Ver Logs
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>
