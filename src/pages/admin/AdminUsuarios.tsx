@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Users, Shield, Search, Ban, CheckCircle, Crown, User, Gift, Clock, ShieldCheck, ShieldOff, AlertTriangle } from "lucide-react";
+import { Users, Shield, Search, Ban, CheckCircle, Crown, User, Gift, Clock, ShieldCheck, ShieldOff, AlertTriangle, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -34,6 +34,7 @@ export default function AdminUsuarios() {
   const [showTrialDialog, setShowTrialDialog] = useState(false);
   const [showAdminConfirm, setShowAdminConfirm] = useState<{ userId: string; name: string; isAdmin: boolean } | null>(null);
   const [showBlockConfirm, setShowBlockConfirm] = useState<{ userId: string; name: string; isBlocked: boolean } | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState<{ userId: string; name: string } | null>(null);
 
   const [grantPlan, setGrantPlan] = useState("premium_mensal");
   const [grantDays, setGrantDays] = useState("30");
@@ -154,6 +155,26 @@ export default function AdminUsuarios() {
       toast.success(`Premium Teste concedido para ${result.updated} usuário(s)!`);
       setShowTrialDialog(false);
       setSelectedUsers(new Set());
+      fetchUsers();
+    } else {
+      toast.error(result?.error || "Erro desconhecido");
+    }
+  };
+
+  // --- Reset user data ---
+  const handleResetUser = async () => {
+    if (!adminUser || !showResetConfirm) return;
+    setProcessing(true);
+    const { data, error } = await supabase.rpc("admin_reset_user_data", {
+      _admin_user_id: adminUser.id,
+      _target_user_id: showResetConfirm.userId,
+    });
+    setProcessing(false);
+    if (error) { toast.error("Erro: " + error.message); return; }
+    const result = data as any;
+    if (result?.success) {
+      toast.success(`Progresso de "${showResetConfirm.name}" resetado com sucesso!`);
+      setShowResetConfirm(null);
       fetchUsers();
     } else {
       toast.error(result?.error || "Erro desconhecido");
@@ -294,6 +315,16 @@ export default function AdminUsuarios() {
                       {isAdmin ? <><ShieldOff className="w-3 h-3" /> Remover Admin</> : <><ShieldCheck className="w-3 h-3" /> Dar Admin</>}
                     </Button>
 
+                    {/* Reset Progress */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1 h-7 text-xs border-orange-500/30 text-orange-500"
+                      onClick={() => setShowResetConfirm({ userId: u.user_id, name: u.name || "Sem nome" })}
+                    >
+                      <RotateCcw className="w-3 h-3" /> Resetar
+                    </Button>
+
                     {/* Block/Unblock */}
                     <Button
                       variant={isBlocked ? "outline" : "destructive"}
@@ -363,6 +394,26 @@ export default function AdminUsuarios() {
               variant={showBlockConfirm?.isBlocked ? "default" : "destructive"}
             >
               {processing ? "Processando..." : showBlockConfirm?.isBlocked ? "Desbloquear" : "Bloquear Usuário"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Confirm Dialog */}
+      <Dialog open={!!showResetConfirm} onOpenChange={() => setShowResetConfirm(null)}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-orange-500" /> Resetar Progresso
+            </DialogTitle>
+            <DialogDescription>
+              Isso vai apagar <span className="font-semibold text-foreground">TODOS</span> os dados de progresso de "{showResetConfirm?.name}" — questões, aulas, conquistas, simulados, redações, diagnóstico e sessões de estudo. Nome, email e assinatura serão preservados. Esta ação é irreversível!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="outline" onClick={() => setShowResetConfirm(null)}>Cancelar</Button>
+            <Button onClick={handleResetUser} disabled={processing} className="bg-orange-500 text-white hover:bg-orange-600">
+              {processing ? "Processando..." : "Confirmar Reset"}
             </Button>
           </div>
         </DialogContent>

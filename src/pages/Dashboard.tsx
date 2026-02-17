@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import UpgradePrompt from "@/components/UpgradePrompt";
 import DailyGoalWidget from "@/components/DailyGoalWidget";
+import { toast } from "sonner";
 
 const container = {
   hidden: { opacity: 0 },
@@ -56,6 +57,39 @@ export default function Dashboard() {
     };
     checkDiagnostic();
   }, [user, navigate]);
+
+  // Auto-promote level
+  useEffect(() => {
+    if (!user || !profile) return;
+    const checkPromotion = async () => {
+      const [levelsRes, sessionsRes, answersRes] = await Promise.all([
+        supabase.from("levels").select("*").order("rank_order"),
+        supabase.from("study_sessions").select("duration_seconds").eq("user_id", user.id),
+        supabase.from("user_answers").select("is_correct").eq("user_id", user.id),
+      ]);
+      const allLevels = levelsRes.data ?? [];
+      const totalHours = (sessionsRes.data ?? []).reduce((s, r) => s + (r.duration_seconds || 0), 0) / 3600;
+      const answers = answersRes.data ?? [];
+      const accuracy = answers.length > 0 ? (answers.filter(a => a.is_correct).length / answers.length) * 100 : 0;
+      const currentOrder = profile.levels?.rank_order || 1;
+
+      // Find highest eligible level
+      let bestLevel = currentOrder;
+      for (const lv of allLevels) {
+        if (lv.rank_order > currentOrder && totalHours >= (lv.min_hours || 0) && accuracy >= (lv.min_accuracy || 0)) {
+          bestLevel = Math.max(bestLevel, lv.rank_order);
+        }
+      }
+      if (bestLevel > currentOrder) {
+        const newLevel = allLevels.find(l => l.rank_order === bestLevel);
+        if (newLevel) {
+          await supabase.from("profiles").update({ level_id: newLevel.id }).eq("user_id", user.id);
+          toast.success(`🎖️ Parabéns! Você foi promovido a ${newLevel.name}!`, { duration: 5000 });
+        }
+      }
+    };
+    checkPromotion();
+  }, [user, profile]);
 
   useEffect(() => {
     if (!user) return;
