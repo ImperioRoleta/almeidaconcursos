@@ -73,7 +73,7 @@ export function AppSidebar() {
             <Shield className="w-5 h-5 text-primary-foreground" />
           </div>
           <div className="min-w-0">
-            <h2 className="font-heading font-bold text-sm tracking-tight truncate">Elite PMBA</h2>
+            <h2 className="font-heading font-bold text-sm tracking-tight truncate">Almeida Concursos</h2>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-[10px] text-muted-foreground truncate">{levelName}</span>
               {isActive && (
