@@ -1,3 +1,4 @@
+import PromoBanner from "@/components/landing/PromoBanner";
 import LandingHeader from "@/components/landing/LandingHeader";
 import LandingHero from "@/components/landing/LandingHero";
 import LandingMethod from "@/components/landing/LandingMethod";
@@ -10,6 +11,7 @@ import LandingCTA from "@/components/landing/LandingCTA";
 export default function Landing() {
   return (
     <div className="min-h-screen bg-background overflow-hidden">
+      <PromoBanner />
       <LandingHeader />
       <LandingHero />
       <LandingFeatures />
