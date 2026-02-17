@@ -161,7 +161,7 @@ export default function AdminConteudo() {
               <div><Label>Descrição</Label><Input value={formDesc} onChange={e => setFormDesc(e.target.value)} /></div>
             )}
             {editMode === "lesson" && (
-              <div><Label>Conteúdo (Markdown)</Label><Textarea value={formContent} onChange={e => setFormContent(e.target.value)} rows={8} /></div>
+              <div><Label>📝 Apostila Escrita (Markdown)</Label><Textarea value={formContent} onChange={e => setFormContent(e.target.value)} rows={8} placeholder="Conteúdo escrito da aula em formato Markdown..." /></div>
             )}
             {/* Image URL - available for all */}
             <div>
@@ -170,7 +170,7 @@ export default function AdminConteudo() {
             </div>
             {editMode === "lesson" && (
               <div className="space-y-3 border-t border-border pt-3">
-                <Label className="text-sm font-semibold">Vídeo da Aula (opcional)</Label>
+                <Label className="text-sm font-semibold">🎬 Vídeo Aula (opcional)</Label>
                 <Input value={formVideoUrl} onChange={e => setFormVideoUrl(e.target.value)} placeholder="URL do YouTube, Vimeo ou link direto" />
                 <p className="text-xs text-muted-foreground">Ou faça upload de um arquivo de vídeo:</p>
                 <Input type="file" accept="video/*" onChange={e => setVideoFile(e.target.files?.[0] || null)} />
@@ -250,8 +250,10 @@ export default function AdminConteudo() {
                     <div className="min-w-0">
                       <p className="font-medium">Aula {String(idx + 1).padStart(2, "0")} — {l.title}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        {l.video_url && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">VÍDEO</span>}
+                        {l.video_url && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">🎬 VÍDEO</span>}
+                        {l.content?.trim() && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[hsl(var(--chart-4))]/10 text-[hsl(var(--chart-4))] font-semibold">📝 APOSTILA</span>}
                         {l.image_url && <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent">IMAGEM</span>}
+                        {!l.video_url && !l.content?.trim() && <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">SEM CONTEÚDO</span>}
                       </div>
                     </div>
                   </div>
