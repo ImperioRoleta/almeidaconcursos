@@ -109,7 +109,13 @@ export default function LessonQuestions({ topicId }: LessonQuestionsProps) {
     }
   };
 
-  if (questions.length === 0) return null;
+  if (questions.length === 0) return (
+    <div className="p-4 rounded-xl border border-border bg-muted/30 text-center">
+      <HelpCircle className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+      <p className="text-sm text-muted-foreground">Nenhuma questão disponível para este assunto ainda.</p>
+      <p className="text-xs text-muted-foreground mt-1">As questões serão adicionadas em breve.</p>
+    </div>
+  );
 
   const answeredCount = revealedQuestions.size;
   const pct = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;

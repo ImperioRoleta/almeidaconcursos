@@ -8,11 +8,23 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
   BookOpen, ChevronRight, CheckCircle, Lock, Volume2, VolumeX,
-  Video, RotateCcw, Layers, GraduationCap, ArrowLeft, Play, Sparkles,
+  Video, RotateCcw, Layers, GraduationCap, ArrowLeft, Play, Sparkles, FileText,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
 import LessonQuestions from "@/components/LessonQuestions";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const LessonContentTabs = ({ videoPlayer, writtenContent }: { videoPlayer: React.ReactNode; writtenContent: React.ReactNode }) => (
+  <Tabs defaultValue="video" className="w-full">
+    <TabsList className="w-full grid grid-cols-2">
+      <TabsTrigger value="video" className="gap-2"><Video className="w-4 h-4" /> Vídeo Aula</TabsTrigger>
+      <TabsTrigger value="apostila" className="gap-2"><FileText className="w-4 h-4" /> Apostila Escrita</TabsTrigger>
+    </TabsList>
+    <TabsContent value="video">{videoPlayer}</TabsContent>
+    <TabsContent value="apostila" className="space-y-4">{writtenContent}</TabsContent>
+  </Tabs>
+);
 
 export default function Aulas() {
   const { user } = useAuth();
@@ -254,31 +266,51 @@ export default function Aulas() {
           )}
         </div>
 
-        {/* Video player */}
-        {videoEnabled && selectedLesson.video_url && (
-          <div className="rounded-2xl overflow-hidden border border-border bg-black aspect-video shadow-xl">
-            {embedUrl ? (
-              <iframe src={embedUrl} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen title={selectedLesson.title} />
-            ) : (
-              <video controls className="w-full h-full" src={selectedLesson.video_url}>Seu navegador não suporta vídeos.</video>
-            )}
-          </div>
-        )}
+        {/* Content: Video / Apostila / Tabs */}
+        {(() => {
+          const hasVideo = videoEnabled && !!selectedLesson.video_url;
+          const hasContent = !!selectedLesson.content?.trim();
+          const hasBoth = hasVideo && hasContent;
 
-        {/* TTS button */}
-        {ttsEnabled && selectedLesson.content && (
-          <Button variant="outline" size="sm" onClick={toggleTTS} className="gap-2">
-            {isSpeaking ? <><VolumeX className="w-4 h-4" /> Parar Narração</> : <><Volume2 className="w-4 h-4" /> Ouvir Aula</>}
-          </Button>
-        )}
+          const VideoPlayer = () => (
+            <div className="rounded-2xl overflow-hidden border border-border bg-black aspect-video shadow-xl">
+              {embedUrl ? (
+                <iframe src={embedUrl} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen title={selectedLesson.title} />
+              ) : (
+                <video controls className="w-full h-full" src={selectedLesson.video_url}>Seu navegador não suporta vídeos.</video>
+              )}
+            </div>
+          );
 
-        <div className="prose prose-invert prose-lg max-w-none glass-card p-8 leading-relaxed prose-headings:font-heading prose-headings:text-foreground prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-muted-foreground prose-p:mb-4 prose-p:leading-relaxed prose-strong:text-foreground prose-strong:font-semibold prose-li:text-muted-foreground prose-li:mb-1 prose-ul:mb-4 prose-ol:mb-4 prose-a:text-primary prose-a:underline">
-          {selectedLesson.content ? (
-            <ReactMarkdown>{selectedLesson.content}</ReactMarkdown>
-          ) : (
-            <p className="text-muted-foreground italic">Conteúdo da aula será adicionado em breve.</p>
-          )}
-        </div>
+          const WrittenContent = () => (
+            <>
+              {ttsEnabled && hasContent && (
+                <Button variant="outline" size="sm" onClick={toggleTTS} className="gap-2">
+                  {isSpeaking ? <><VolumeX className="w-4 h-4" /> Parar Narração</> : <><Volume2 className="w-4 h-4" /> Ouvir Aula</>}
+                </Button>
+              )}
+              <div className="prose prose-invert prose-lg max-w-none glass-card p-8 leading-relaxed prose-headings:font-heading prose-headings:text-foreground prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:text-muted-foreground prose-p:mb-4 prose-p:leading-relaxed prose-strong:text-foreground prose-strong:font-semibold prose-li:text-muted-foreground prose-li:mb-1 prose-ul:mb-4 prose-ol:mb-4 prose-a:text-primary prose-a:underline">
+                <ReactMarkdown>{selectedLesson.content}</ReactMarkdown>
+              </div>
+            </>
+          );
+
+          if (hasBoth) {
+            return (
+              <LessonContentTabs
+                videoPlayer={<VideoPlayer />}
+                writtenContent={<WrittenContent />}
+              />
+            );
+          }
+          if (hasVideo) return <VideoPlayer />;
+          if (hasContent) return <WrittenContent />;
+          return (
+            <div className="glass-card p-8">
+              <p className="text-muted-foreground italic">Conteúdo da aula será adicionado em breve.</p>
+            </div>
+          );
+        })()}
 
         {/* Inline questions for this topic */}
         {selectedTopic && <LessonQuestions topicId={selectedTopic} />}
@@ -522,6 +554,11 @@ export default function Aulas() {
                         {l.video_url && (
                           <Badge variant="outline" className="text-[9px] py-0 px-1.5 gap-1 border-primary/30 text-primary">
                             <Video className="w-2.5 h-2.5" /> Vídeo
+                          </Badge>
+                        )}
+                        {l.content?.trim() && (
+                          <Badge variant="outline" className="text-[9px] py-0 px-1.5 gap-1 border-[hsl(var(--chart-4))]/30 text-[hsl(var(--chart-4))]">
+                            <FileText className="w-2.5 h-2.5" /> Apostila
                           </Badge>
                         )}
                         {locked && (

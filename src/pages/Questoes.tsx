@@ -241,9 +241,23 @@ export default function Questoes() {
     const { data: qs } = await supabase.from("questions").select("id").eq("subject_id", subjectId);
     if (!qs || qs.length === 0) return;
     const qIds = qs.map(q => q.id);
-    await supabase.from("user_answers").delete().eq("user_id", user.id).in("question_id", qIds);
+    const { error } = await supabase.from("user_answers").delete().eq("user_id", user.id).in("question_id", qIds);
+    if (error) {
+      toast.error("Erro ao resetar questões. Tente novamente.");
+      return;
+    }
+    // Also delete from review_queue
+    await supabase.from("review_queue").delete().eq("user_id", user.id).in("question_id", qIds);
+    // Clear all local state
     setAnsweredBySubject(prev => ({ ...prev, [subjectId]: 0 }));
     setCorrectBySubject(prev => ({ ...prev, [subjectId]: 0 }));
+    // Clear practice session state in case user re-enters
+    setAnsweredMap(prev => {
+      const next = { ...prev };
+      qIds.forEach(id => delete next[id]);
+      return next;
+    });
+    setSessionStats({ total: 0, correct: 0 });
     toast.success("Progresso resetado! Você pode recomeçar do zero.");
   };
 
