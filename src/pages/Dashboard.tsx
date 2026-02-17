@@ -183,15 +183,15 @@ export default function Dashboard() {
       <UpgradePrompt context="Estude sem limites: questões, simulados, IA e plano personalizado" />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 stagger-children">
+      <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3 stagger-children">
         {cards.map((c, i) => (
           <Card key={i} className="stat-card">
-            <CardContent className="p-4">
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${c.gradient} flex items-center justify-center mb-3`}>
-                <c.icon className={`w-5 h-5 ${c.iconColor}`} />
+            <CardContent className="p-3 md:p-4">
+              <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br ${c.gradient} flex items-center justify-center mb-2 md:mb-3`}>
+                <c.icon className={`w-4 h-4 md:w-5 md:h-5 ${c.iconColor}`} />
               </div>
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{c.label}</p>
-              <p className="text-2xl font-heading font-bold font-mono mt-0.5">{c.value}</p>
+              <p className="text-[9px] md:text-[11px] text-muted-foreground uppercase tracking-wider font-medium leading-tight">{c.label}</p>
+              <p className="text-lg md:text-2xl font-heading font-bold font-mono mt-0.5">{c.value}</p>
             </CardContent>
           </Card>
         ))}
