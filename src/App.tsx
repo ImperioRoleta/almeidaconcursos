@@ -25,6 +25,7 @@ import AdminAssinaturas from "./pages/admin/AdminAssinaturas";
 import AdminPagamentos from "./pages/admin/AdminPagamentos";
 import Conquistas from "./pages/Conquistas";
 import Assinatura from "./pages/Assinatura";
+import Diagnostico from "./pages/Diagnostico";
 import NotFound from "./pages/NotFound";
 import AdminGuard from "./components/AdminGuard";
 
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/cadastro" element={<Cadastro />} />
 
             <Route element={<AppLayout />}>
+              <Route path="/diagnostico" element={<Diagnostico />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/aulas" element={<Aulas />} />
               <Route path="/questoes" element={<Questoes />} />
