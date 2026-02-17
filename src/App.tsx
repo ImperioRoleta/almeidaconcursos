@@ -27,6 +27,7 @@ import AdminPagamentos from "./pages/admin/AdminPagamentos";
 import AdminNotificacoes from "./pages/admin/AdminNotificacoes";
 import AdminLogs from "./pages/admin/AdminLogs";
 import AdminPlanos from "./pages/admin/AdminPlanos";
+import AdminMercadoPago from "./pages/admin/AdminMercadoPago";
 import Conquistas from "./pages/Conquistas";
 import Assinatura from "./pages/Assinatura";
 import Diagnostico from "./pages/Diagnostico";
@@ -70,6 +71,7 @@ const App = () => (
               <Route path="/admin/notificacoes" element={<AdminGuard><AdminNotificacoes /></AdminGuard>} />
               <Route path="/admin/logs" element={<AdminGuard><AdminLogs /></AdminGuard>} />
               <Route path="/admin/planos" element={<AdminGuard><AdminPlanos /></AdminGuard>} />
+              <Route path="/admin/mercadopago" element={<AdminGuard><AdminMercadoPago /></AdminGuard>} />
             </Route>
 
             <Route path="*" element={<NotFound />} />
