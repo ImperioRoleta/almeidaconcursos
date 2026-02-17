@@ -296,6 +296,7 @@ export type Database = {
           id: number
           min_accuracy: number | null
           min_hours: number | null
+          min_xp: number
           name: string
           rank_order: number
         }
@@ -303,6 +304,7 @@ export type Database = {
           id?: number
           min_accuracy?: number | null
           min_hours?: number | null
+          min_xp?: number
           name: string
           rank_order?: number
         }
@@ -310,6 +312,7 @@ export type Database = {
           id?: number
           min_accuracy?: number | null
           min_hours?: number | null
+          min_xp?: number
           name?: string
           rank_order?: number
         }

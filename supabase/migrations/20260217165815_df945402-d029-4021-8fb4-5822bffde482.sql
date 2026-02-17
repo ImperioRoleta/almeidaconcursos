@@ -1,0 +1,2 @@
+
+ALTER TABLE public.levels ADD COLUMN IF NOT EXISTS min_xp integer NOT NULL DEFAULT 0;
