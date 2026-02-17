@@ -1,95 +1,73 @@
 
+# Plano: Correcoes Criticas + Apostila/Video + Pente Fino
 
-# Plano: Questoes na Aula + Redesign de Questoes + Progressao
+## Bug 1: Reset de Questoes Nao Funciona (CRITICO)
 
-## 1. Questoes Integradas na Pagina da Aula
+**Causa raiz:** A tabela `user_answers` NAO tem politica RLS para DELETE. Quando o `resetSubjectQuestions` chama `.delete()`, a operacao falha silenciosamente porque o banco rejeita a exclusao.
 
-Apos o conteudo da aula, antes dos botoes de "Concluir" e "Proxima Aula", sera adicionada uma secao de questoes relacionadas ao assunto (topic_id da aula).
+**Solucao:** Criar migracao adicionando:
+```text
+CREATE POLICY "Users delete own answers"
+  ON public.user_answers FOR DELETE TO authenticated
+  USING (auth.uid() = user_id);
+```
 
-**Funcionamento:**
-- Ao abrir a aula, busca questoes da tabela `questions` filtradas pelo `topic_id` da aula
-- Exibe as questoes em formato inline, sem sair da pagina
-- Questoes ja respondidas pelo usuario aparecem marcadas como "respondida" (checkmark visual)
-- O aluno pode responder quantas quiser antes de prosseguir
-- Feedback imediato (verde/vermelho) + explicacao apos responder
-- Contador de acertos (ex: "3/5 corretas") visivel
-
-**Dados:** A tabela `questions` ja possui `topic_id` (uuid, nullable). As questoes que tiverem topic_id correspondente ao topico da aula serao exibidas.
+Alem disso, apos o reset no codigo, tambem limpar o `answeredMap` local (estado da sessao de pratica) para que a UI reflita imediatamente.
 
 ---
 
-## 2. Redesign Completo da Pagina de Questoes (/questoes)
+## Bug 2: Questoes da Aula Nao Aparecem
 
-**Vista de Materias (subject list):**
-- Cards com gradientes, icones coloridos, descricao e imagem (mesmo estilo da pagina de Aulas)
-- Progresso por materia: total de questoes respondidas vs disponiveis
-- Breadcrumb de navegacao (Materias > Materia X)
-- Banner de limite diario com design mais elegante
+**Analise:** O componente `LessonQuestions` esta presente no codigo (linha 284 do Aulas.tsx), recebendo `selectedTopic` como prop. O componente busca questoes com `topic_id` correspondente. O problema pode ser:
+- Questoes no banco sem `topic_id` preenchido (campo nullable)
+- O componente retorna `null` quando nao encontra questoes
 
-**Vista de Questoes (pratica):**
-- Header com progresso visual (progress bar do lote atual)
-- Card da questao com design premium: numero da questao, badge de dificuldade
-- Opcoes com animacao de hover e feedback visual mais rico
-- Indicador lateral de questoes respondidas (dots/mini-timeline)
-- Painel lateral ou topo com stats em tempo real (acertos, taxa, tempo)
-
-**Questoes ja respondidas:**
-- Ao carregar questoes, buscar `user_answers` do usuario para aquele subject
-- Marcar visualmente questoes ja respondidas com icone de check
-- Permitir refazer, mas mostrar resultado anterior
+**Solucao:** Manter o componente, mas tambem adicionar um fallback visual quando nao ha questoes ("Nenhuma questao disponivel para este assunto ainda"). Verificar que as questoes cadastradas via admin tenham `topic_id` configurado.
 
 ---
 
-## 3. Progressao por Materia em Questoes
+## Feature: Apostila Escrita vs Video Aula (estilo QConcursos)
 
-Semelhante ao que existe em Aulas:
-- Na listagem de materias, exibir barra de progresso com total de questoes respondidas vs total disponivel
-- Contagem de questoes por materia
-- Taxa de acerto por materia (percentual)
-- Ao atingir 100%, botao de "Recomecar" (limpar answers daquela materia? Ou apenas mostrar novamente)
+**Como funciona hoje:** A pagina de aula exibe video E conteudo escrito juntos, sem separacao.
 
-**Dados utilizados:**
-- `questions` (count por subject_id)
-- `user_answers` (count por question.subject_id via join ou pre-fetch)
+**Nova logica:**
+- Se a aula tem APENAS video (`video_url` preenchido, `content` vazio): mostra so o player de video
+- Se a aula tem APENAS apostila escrita (`content` preenchido, `video_url` vazio): mostra so o texto
+- Se tem AMBOS: mostra tabs seletoras "Video Aula" e "Apostila Escrita" para o usuario escolher
+
+**Na lista de aulas:** Badges indicando o que esta disponivel (icone Video, icone Apostila)
+
+**No Admin:** O formulario ja suporta ambos os campos. Adicionar labels mais claros e badges visuais indicando quais formatos a aula possui. Adicionar toggle/checkboxes para "Tem Apostila Escrita" e "Tem Video Aula" para maior clareza.
 
 ---
 
-## 4. Estado Persistente de "Respondida"
+## Pente Fino Geral
 
-- Ao carregar um lote de questoes, buscar todas as `user_answers` do usuario para aquelas question_ids
-- Exibir indicador visual (badge "Respondida", icone check) em questoes ja feitas
-- No mini-mapa de questoes (dots), diferenciar: nao respondida, respondida certa, respondida errada
-- Dentro da aula, mesmo comportamento: questoes do topico marcadas como respondidas
+### Questoes.tsx:
+- Apos reset, limpar `answeredMap` para a sessao corrente nao manter estado velho
+- Garantir que ao voltar para lista de materias apos reset, os contadores estejam zerados
+
+### Aulas.tsx:
+- Melhorar o fallback do LessonQuestions (mostrar mensagem quando nao ha questoes)
+- Tabs de video/apostila no detalhe da aula
+
+### AdminConteudo.tsx:
+- Labels mais claros: "Apostila Escrita (Markdown)" e "Video Aula"
+- Badges na lista de aulas indicando quais formatos estao disponiveis (APOSTILA, VIDEO)
+
+### LessonQuestions.tsx:
+- Adicionar mensagem quando nao ha questoes para o topico
+- Melhorar visual do header para ficar mais convidativo
 
 ---
 
 ## Detalhes Tecnicos
 
+### Migracao necessaria:
+- Adicionar politica DELETE em `user_answers` para usuarios autenticados
+
 ### Arquivos a modificar:
-
-1. **`src/pages/Aulas.tsx`** — Na secao "Lesson Detail", adicionar componente de questoes inline apos o conteudo. Buscar questoes pelo `topic_id` do topico selecionado. Incluir logica de resposta e feedback.
-
-2. **`src/pages/Questoes.tsx`** — Redesign completo:
-   - Vista de materias com cards gradiente, progress bars, stats por materia
-   - Vista de pratica com design avancado, mini-mapa, feedback rico
-   - Carregar `user_answers` existentes para marcar questoes respondidas
-   - Breadcrumb de navegacao
-
-3. **Nenhuma migracao necessaria** — As tabelas `questions` (com `topic_id`), `question_options` e `user_answers` ja existem e suportam todas as funcionalidades.
-
-### Fluxo de dados para questoes na aula:
-```text
-Aula selecionada -> topic_id da aula
-  -> SELECT * FROM questions WHERE topic_id = <topic_id>
-  -> SELECT * FROM user_answers WHERE user_id = <user> AND question_id IN (...)
-  -> Renderizar questoes inline com status de respondida
-```
-
-### Fluxo de progressao em /questoes:
-```text
-Pagina carrega -> SELECT subject_id, count(*) FROM questions GROUP BY subject_id
-  -> SELECT question_id FROM user_answers WHERE user_id = <user>
-  -> Calcular % respondidas por materia
-  -> Exibir progress bars nos cards de materia
-```
-
+1. **`src/pages/Questoes.tsx`** — Limpar `answeredMap` no reset + fix de estado
+2. **`src/pages/Aulas.tsx`** — Tabs video/apostila no detalhe da aula + badges na timeline
+3. **`src/pages/admin/AdminConteudo.tsx`** — Labels melhorados + badges de formato na lista
+4. **`src/components/LessonQuestions.tsx`** — Fallback visual quando sem questoes
