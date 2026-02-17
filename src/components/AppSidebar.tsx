@@ -32,6 +32,7 @@ import {
   CreditCard,
   Lock,
   Crosshair,
+  Brain,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,7 @@ const studentItems = [
   { title: "Aulas", url: "/aulas", icon: BookOpen, premium: false },
   { title: "Questões", url: "/questoes", icon: HelpCircle, premium: false },
   { title: "Simulados", url: "/simulados", icon: FileText, premium: true },
+  { title: "Revisões", url: "/revisoes", icon: Brain, premium: false },
   { title: "Plano de Estudos", url: "/plano", icon: CalendarDays, premium: true },
   { title: "Ranking", url: "/ranking", icon: Trophy, premium: false },
   { title: "Conquistas", url: "/conquistas", icon: Award, premium: false },

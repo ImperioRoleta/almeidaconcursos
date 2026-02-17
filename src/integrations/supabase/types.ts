@@ -368,6 +368,53 @@ export type Database = {
           },
         ]
       }
+      review_queue: {
+        Row: {
+          created_at: string
+          ease_factor: number
+          id: string
+          interval_days: number
+          last_reviewed_at: string | null
+          next_review_at: string
+          question_id: string
+          repetitions: number
+          source: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ease_factor?: number
+          id?: string
+          interval_days?: number
+          last_reviewed_at?: string | null
+          next_review_at?: string
+          question_id: string
+          repetitions?: number
+          source?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ease_factor?: number
+          id?: string
+          interval_days?: number
+          last_reviewed_at?: string | null
+          next_review_at?: string
+          question_id?: string
+          repetitions?: number
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_queue_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       simulation_results: {
         Row: {
           completed_at: string
@@ -506,6 +553,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "study_sessions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_trail: {
+        Row: {
+          completed_at: string | null
+          current_step: string
+          id: string
+          lessons_done: number
+          questions_done: number
+          review_done: boolean
+          simulation_done: boolean
+          started_at: string
+          subject_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          current_step?: string
+          id?: string
+          lessons_done?: number
+          questions_done?: number
+          review_done?: boolean
+          simulation_done?: boolean
+          started_at?: string
+          subject_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          current_step?: string
+          id?: string
+          lessons_done?: number
+          questions_done?: number
+          review_done?: boolean
+          simulation_done?: boolean
+          started_at?: string
+          subject_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_trail_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"
