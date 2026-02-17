@@ -3,10 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Target, BookOpen, Award, TrendingUp, BarChart3, Flame, Crown, Trophy, ChevronRight, Zap } from "lucide-react";
+import { Clock, Target, BookOpen, Award, TrendingUp, BarChart3, Flame, Trophy, Zap } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { StudyTimer } from "@/components/StudyTimer";
-import { Badge } from "@/components/ui/badge";
+
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
@@ -118,12 +118,7 @@ export default function Dashboard() {
   }, [user]);
 
   const levelName = profile?.levels?.name || "Recruta";
-  const isPremium = subscription?.plan !== "gratuito" && subscription?.status === "active";
-  const isTrial = subscription?.plan === "premium_teste" || subscription?.plan === "trial";
   const isExpired = subscription?.expire_date && new Date(subscription.expire_date) < new Date();
-  const daysLeft = subscription?.expire_date
-    ? Math.max(0, Math.ceil((new Date(subscription.expire_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-    : null;
   const COLORS = ["hsl(217, 99%, 50%)", "hsl(0, 0%, 15%)"];
   const pieData = [
     { name: "Acertos", value: stats.accuracy || 1 },
@@ -141,25 +136,13 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Welcome header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex items-center gap-4">
         <div>
           <h1 className="font-heading text-2xl font-bold">Olá, {profile?.name || "Aluno"} 👋</h1>
           <p className="text-muted-foreground">
             Continue evoluindo • <span className="text-accent font-semibold">{levelName}</span>
           </p>
         </div>
-        {isPremium && !isExpired ? (
-          <Badge className={`gap-1 ${isTrial ? "bg-[hsl(280,70%,55%)]/10 text-[hsl(280,70%,55%)] border-[hsl(280,70%,55%)]/20" : "bg-accent/10 text-accent border-accent/20"}`}>
-            <Crown className="w-3 h-3" /> {isTrial ? "Premium Teste" : "Premium"}
-            {daysLeft !== null && <span className="text-[10px] ml-1">({daysLeft}d)</span>}
-          </Badge>
-        ) : (
-          <Link to="/assinatura">
-            <Button size="sm" className="gradient-gold text-background gap-1">
-              <Zap className="w-4 h-4" /> Fazer Upgrade
-            </Button>
-          </Link>
-        )}
       </div>
 
       {/* Subscription warning */}
@@ -197,14 +180,8 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Study Trail */}
-      <StudyTrail />
-
-      {/* AI Tutor Widget */}
-      <AiTutorWidget />
-
-      {/* Quick actions + Achievements */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Quick actions + AI Tutor + Achievements */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Quick actions */}
         <Card className="glass-card">
           <CardHeader className="pb-2">
@@ -227,6 +204,9 @@ export default function Dashboard() {
             ))}
           </CardContent>
         </Card>
+
+        {/* AI Tutor Widget */}
+        <AiTutorWidget />
 
         {/* Achievements summary */}
         <Card className="glass-card">
@@ -327,6 +307,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Study Trail - at the bottom for focused study flow */}
+      <StudyTrail />
     </div>
   );
 }
