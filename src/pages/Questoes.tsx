@@ -4,10 +4,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, HelpCircle, Lock } from "lucide-react";
+import { CheckCircle, XCircle, HelpCircle, Lock, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import UpgradePrompt from "@/components/UpgradePrompt";
+import PremiumGate from "@/components/PremiumGate";
+
+const FREE_DAILY_LIMIT = 10;
 
 export default function Questoes() {
   const { user } = useAuth();
@@ -21,16 +24,38 @@ export default function Questoes() {
   const [selected, setSelected] = useState<string | null>(null);
   const [answered, setAnswered] = useState(false);
   const [stats, setStats] = useState({ total: 0, correct: 0 });
+  const [todayCount, setTodayCount] = useState(0);
 
   useEffect(() => {
     supabase.from("subjects").select("*").order("order_index").then(({ data }) => setSubjects(data ?? []));
   }, []);
 
+  // Count today's answers for free users
+  useEffect(() => {
+    if (!user || isActive) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    supabase
+      .from("user_answers")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .gte("answered_at", today.toISOString())
+      .then(({ count }) => setTodayCount(count ?? 0));
+  }, [user, isActive]);
+
+  const dailyLimitReached = !isActive && todayCount >= FREE_DAILY_LIMIT;
+  const remaining = Math.max(0, FREE_DAILY_LIMIT - todayCount);
+
   const startPractice = async (subjectId: string) => {
+    if (dailyLimitReached) {
+      toast.error("Limite diário atingido! Faça upgrade para questões ilimitadas.");
+      return;
+    }
     setSelectedSubject(subjectId);
     let query = supabase.from("questions").select("*").eq("subject_id", subjectId);
     if (!isActive) query = query.eq("is_premium", false);
-    const { data } = await query.limit(20);
+    const limit = isActive ? 20 : Math.min(remaining, 20);
+    const { data } = await query.limit(limit);
     setQuestions(data ?? []);
     setCurrentIdx(0);
     setStats({ total: 0, correct: 0 });
@@ -58,7 +83,6 @@ export default function Questoes() {
       is_correct: isCorrect,
     });
 
-    // Auto-enqueue wrong answers into spaced repetition review queue
     if (!isCorrect) {
       await supabase.from("review_queue").upsert({
         user_id: user.id,
@@ -72,6 +96,7 @@ export default function Questoes() {
     }
 
     setStats(prev => ({ total: prev.total + 1, correct: prev.correct + (isCorrect ? 1 : 0) }));
+    setTodayCount(prev => prev + 1);
   };
 
   const nextQuestion = () => {
@@ -91,15 +116,31 @@ export default function Questoes() {
         <h1 className="font-heading text-2xl font-bold">Questões</h1>
         <p className="text-muted-foreground">Escolha uma matéria para praticar</p>
         {!isActive && (
-          <UpgradePrompt variant="compact" context="Desbloqueie todas as questões premium" />
+          <div className="space-y-3">
+            <div className="glass-card p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-accent" />
+                <div>
+                  <p className="text-sm font-medium">Limite diário: {remaining}/{FREE_DAILY_LIMIT} questões restantes</p>
+                  <p className="text-xs text-muted-foreground">Faça upgrade para questões ilimitadas</p>
+                </div>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => navigate("/assinatura")}>Upgrade</Button>
+            </div>
+          </div>
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {subjects.map(s => (
-            <Card key={s.id} className="glass-card cursor-pointer hover:border-primary/30 transition-colors" onClick={() => startPractice(s.id)}>
+            <Card
+              key={s.id}
+              className={`glass-card cursor-pointer transition-colors ${dailyLimitReached ? "opacity-50" : "hover:border-primary/30"}`}
+              onClick={() => startPractice(s.id)}
+            >
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
                   <HelpCircle className="w-5 h-5 text-primary" />
                   <p className="font-heading font-semibold">{s.name}</p>
+                  {dailyLimitReached && <Lock className="w-4 h-4 text-muted-foreground ml-auto" />}
                 </div>
               </CardContent>
             </Card>
@@ -119,7 +160,6 @@ export default function Questoes() {
   }
 
   const q = questions[currentIdx];
-  const correctOpt = options.find(o => o.is_correct);
 
   return (
     <div className="space-y-6 animate-fade-in max-w-2xl">
@@ -136,8 +176,8 @@ export default function Questoes() {
             {options.map(opt => {
               let classes = "glass-card p-4 cursor-pointer transition-colors";
               if (answered) {
-                if (opt.is_correct) classes += " border-green-500/50 bg-green-500/10";
-                else if (opt.id === selected && !opt.is_correct) classes += " border-red-500/50 bg-red-500/10";
+                if (opt.is_correct) classes += " border-[hsl(152,69%,42%)]/50 bg-[hsl(152,69%,42%)]/10";
+                else if (opt.id === selected && !opt.is_correct) classes += " border-destructive/50 bg-destructive/10";
               } else {
                 classes += " hover:border-primary/30";
               }
@@ -146,8 +186,8 @@ export default function Questoes() {
                   <div className="flex items-center gap-3">
                     <span className="font-mono font-bold text-primary">{opt.label})</span>
                     <span>{opt.text}</span>
-                    {answered && opt.is_correct && <CheckCircle className="w-4 h-4 text-green-400 ml-auto" />}
-                    {answered && opt.id === selected && !opt.is_correct && <XCircle className="w-4 h-4 text-red-400 ml-auto" />}
+                    {answered && opt.is_correct && <CheckCircle className="w-4 h-4 text-[hsl(152,69%,42%)] ml-auto" />}
+                    {answered && opt.id === selected && !opt.is_correct && <XCircle className="w-4 h-4 text-destructive ml-auto" />}
                   </div>
                 </div>
               );
