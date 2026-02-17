@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trophy, Medal, Clock, Target, Flame, Crown, User } from "lucide-react";
+import { Trophy, Medal, Clock, Target, Flame, Crown, User, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 type RankEntry = {
@@ -15,54 +15,182 @@ type RankEntry = {
   level_name: string;
 };
 
+type SortKey = "hours" | "accuracy" | "streak";
+type TimeFilter = "all" | "week";
+
 export default function Ranking() {
   const { user } = useAuth();
   const [entries, setEntries] = useState<RankEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<"hours" | "accuracy">("hours");
+  const [sortBy, setSortBy] = useState<SortKey>("hours");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetch = async () => {
-      setLoading(true);
-      const { data, error } = await supabase.rpc("get_leaderboard");
-      if (!error && data) setEntries(data as RankEntry[]);
-      setLoading(false);
-    };
-    fetch();
+    supabase.from("subjects").select("id, name").order("order_index").then(({ data }) => {
+      setSubjects(data ?? []);
+    });
   }, []);
 
-  const sorted = [...entries].sort((a, b) =>
-    sortBy === "hours" ? b.total_hours - a.total_hours : b.accuracy - a.accuracy
-  );
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [timeFilter, selectedSubject]);
+
+  const fetchLeaderboard = async () => {
+    setLoading(true);
+
+    if (!selectedSubject && timeFilter === "all") {
+      // Use the existing RPC for general leaderboard
+      const { data } = await supabase.rpc("get_leaderboard");
+      if (data) {
+        // Calculate streaks client-side for the general leaderboard
+        setEntries(data as RankEntry[]);
+      }
+    } else {
+      // Custom query for filtered views
+      const { data: profiles } = await supabase.from("profiles").select("user_id, name, avatar_url, level_id, levels(name)");
+
+      let sessionsQuery = supabase.from("study_sessions").select("user_id, duration_seconds, started_at");
+      let answersQuery = supabase.from("user_answers").select("user_id, is_correct, answered_at, question_id");
+
+      if (timeFilter === "week") {
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        sessionsQuery = sessionsQuery.gte("started_at", weekAgo);
+        answersQuery = answersQuery.gte("answered_at", weekAgo);
+      }
+
+      const [sessionsRes, answersRes] = await Promise.all([sessionsQuery, answersQuery]);
+      const sessions = sessionsRes.data ?? [];
+      let answers = answersRes.data ?? [];
+
+      // Filter by subject if selected
+      if (selectedSubject) {
+        const { data: qs } = await supabase.from("questions").select("id").eq("subject_id", selectedSubject);
+        const questionIds = new Set(qs?.map(q => q.id) ?? []);
+        answers = answers.filter(a => questionIds.has(a.question_id));
+      }
+
+      // Aggregate per user
+      const userMap = new Map<string, { hours: number; correct: number; total: number; days: Set<string> }>();
+
+      for (const s of sessions) {
+        if (!userMap.has(s.user_id)) userMap.set(s.user_id, { hours: 0, correct: 0, total: 0, days: new Set() });
+        const u = userMap.get(s.user_id)!;
+        u.hours += (s.duration_seconds || 0) / 3600;
+        u.days.add(new Date(s.started_at).toDateString());
+      }
+
+      for (const a of answers) {
+        if (!userMap.has(a.user_id)) userMap.set(a.user_id, { hours: 0, correct: 0, total: 0, days: new Set() });
+        const u = userMap.get(a.user_id)!;
+        u.total++;
+        if (a.is_correct) u.correct++;
+        u.days.add(new Date(a.answered_at).toDateString());
+      }
+
+      const result: RankEntry[] = [];
+      for (const [uid, data] of userMap) {
+        const p = (profiles ?? []).find((p: any) => p.user_id === uid);
+        if (!p) continue;
+
+        // Calculate streak from days
+        const sortedDays = [...data.days].map(d => new Date(d).getTime()).sort((a, b) => b - a);
+        let streak = 0;
+        const today = new Date();
+        for (let i = 0; i < 365; i++) {
+          const d = new Date(today);
+          d.setDate(d.getDate() - i);
+          if (data.days.has(d.toDateString())) streak++;
+          else break;
+        }
+
+        result.push({
+          user_id: uid,
+          name: p.name || "Aluno",
+          avatar_url: p.avatar_url,
+          total_hours: Math.round(data.hours * 10) / 10,
+          accuracy: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
+          streak,
+          level_name: (p as any).levels?.name || "Recruta",
+        });
+      }
+
+      setEntries(result);
+    }
+
+    setLoading(false);
+  };
+
+  const sorted = [...entries].sort((a, b) => {
+    if (sortBy === "hours") return b.total_hours - a.total_hours;
+    if (sortBy === "accuracy") return b.accuracy - a.accuracy;
+    return b.streak - a.streak;
+  });
 
   const podiumColors = [
-    "from-[hsl(43,76%,53%)] to-[hsl(43,90%,65%)]",
-    "from-[hsl(0,0%,65%)] to-[hsl(0,0%,80%)]",
+    "from-accent to-accent/70",
+    "from-muted-foreground/60 to-muted-foreground/40",
     "from-[hsl(25,60%,45%)] to-[hsl(25,70%,55%)]",
   ];
   const podiumIcons = [Crown, Medal, Medal];
 
+  const sortOptions: { key: SortKey; label: string; icon: any }[] = [
+    { key: "hours", label: "Horas", icon: Clock },
+    { key: "accuracy", label: "Acerto", icon: Target },
+    { key: "streak", label: "Sequência", icon: Flame },
+  ];
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-bold flex items-center gap-2">
-            <Trophy className="w-6 h-6 text-accent" /> Ranking
-          </h1>
-          <p className="text-muted-foreground text-sm">Competição saudável entre alunos</p>
-        </div>
-        <div className="flex gap-2">
-          {(["hours", "accuracy"] as const).map(key => (
-            <button
-              key={key}
-              onClick={() => setSortBy(key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                sortBy === key
+      <div>
+        <h1 className="font-heading text-2xl font-bold flex items-center gap-2">
+          <Trophy className="w-6 h-6 text-accent" /> Ranking
+        </h1>
+        <p className="text-muted-foreground text-sm">Competição saudável entre alunos</p>
+      </div>
+
+      {/* Filters */}
+      <div className="space-y-3">
+        {/* Sort + Time */}
+        <div className="flex flex-wrap gap-2">
+          {sortOptions.map(opt => (
+            <button key={opt.key} onClick={() => setSortBy(opt.key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                sortBy === opt.key
                   ? "bg-primary/10 text-primary border border-primary/30"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              }`}
-            >
-              {key === "hours" ? "Horas de Estudo" : "Taxa de Acerto"}
+              }`}>
+              <opt.icon className="w-3 h-3" /> {opt.label}
+            </button>
+          ))}
+          <div className="w-px bg-border mx-1" />
+          {(["all", "week"] as const).map(t => (
+            <button key={t} onClick={() => setTimeFilter(t)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                timeFilter === t
+                  ? "bg-accent/10 text-accent border border-accent/30"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}>
+              {t === "all" ? "Geral" : "Esta Semana"}
+            </button>
+          ))}
+        </div>
+
+        {/* Subject filter */}
+        <div className="flex flex-wrap gap-1.5">
+          <button onClick={() => setSelectedSubject(null)}
+            className={`px-2.5 py-1 rounded text-[10px] font-medium transition-all ${
+              !selectedSubject ? "bg-primary/10 text-primary border border-primary/30" : "text-muted-foreground hover:bg-muted/50"
+            }`}>
+            Todas
+          </button>
+          {subjects.map(s => (
+            <button key={s.id} onClick={() => setSelectedSubject(s.id)}
+              className={`px-2.5 py-1 rounded text-[10px] font-medium transition-all ${
+                selectedSubject === s.id ? "bg-primary/10 text-primary border border-primary/30" : "text-muted-foreground hover:bg-muted/50"
+              }`}>
+              {s.name.length > 15 ? s.name.slice(0, 15) + "…" : s.name}
             </button>
           ))}
         </div>
@@ -74,7 +202,7 @@ export default function Ranking() {
         </div>
       ) : (
         <>
-          {/* Podium - Top 3 */}
+          {/* Podium */}
           {sorted.length >= 3 && (
             <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
               {[1, 0, 2].map((rank) => {
@@ -83,16 +211,17 @@ export default function Ranking() {
                 const PodiumIcon = podiumIcons[rank];
                 const isCenter = rank === 0;
                 return (
-                  <Card key={rank} className={`glass-card overflow-hidden text-center ${isCenter ? "lg:-mt-4 border-accent/30 glow-gold" : ""} ${entry.user_id === user?.id ? "ring-1 ring-primary" : ""}`}>
+                  <Card key={rank} className={`glass-card overflow-hidden text-center ${isCenter ? "lg:-mt-4 border-accent/30" : ""} ${entry.user_id === user?.id ? "ring-1 ring-primary" : ""}`}>
                     <CardContent className={`p-4 ${isCenter ? "pt-6" : "pt-5"}`}>
                       <div className={`w-12 h-12 mx-auto rounded-full bg-gradient-to-br ${podiumColors[rank]} flex items-center justify-center mb-3 ${isCenter ? "w-16 h-16" : ""}`}>
-                        <PodiumIcon className={`text-background ${isCenter ? "w-7 h-7" : "w-5 h-5"}`} />
+                        <PodiumIcon className={`text-primary-foreground ${isCenter ? "w-7 h-7" : "w-5 h-5"}`} />
                       </div>
                       <p className="font-heading font-bold text-sm truncate">{entry.name || "Aluno"}</p>
                       <Badge variant="outline" className="text-[10px] mt-1 border-accent/30 text-accent">{entry.level_name}</Badge>
                       <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                         <p className="flex items-center justify-center gap-1"><Clock className="w-3 h-3" /> {entry.total_hours}h</p>
                         <p className="flex items-center justify-center gap-1"><Target className="w-3 h-3" /> {entry.accuracy}%</p>
+                        <p className="flex items-center justify-center gap-1"><Flame className="w-3 h-3" /> {entry.streak}d</p>
                       </div>
                       <p className="font-heading font-bold text-2xl mt-2 font-mono text-accent">#{rank + 1}</p>
                     </CardContent>
@@ -105,7 +234,10 @@ export default function Ranking() {
           {/* Full list */}
           <Card className="glass-card overflow-hidden">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-heading text-muted-foreground uppercase tracking-wider">Classificação Geral</CardTitle>
+              <CardTitle className="text-sm font-heading text-muted-foreground uppercase tracking-wider">
+                Classificação {selectedSubject ? `• ${subjects.find(s => s.id === selectedSubject)?.name}` : "Geral"}
+                {timeFilter === "week" && " • Semanal"}
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border/50">
@@ -125,9 +257,10 @@ export default function Ranking() {
                         </p>
                         <p className="text-xs text-muted-foreground">{entry.level_name}</p>
                       </div>
-                      <div className="flex items-center gap-5 text-sm">
+                      <div className="flex items-center gap-4 text-sm">
                         <span className="flex items-center gap-1 text-muted-foreground"><Clock className="w-3.5 h-3.5" /> <span className="font-mono">{entry.total_hours}h</span></span>
                         <span className="flex items-center gap-1 text-muted-foreground"><Target className="w-3.5 h-3.5" /> <span className="font-mono">{entry.accuracy}%</span></span>
+                        <span className="flex items-center gap-1 text-muted-foreground hidden sm:flex"><Flame className="w-3.5 h-3.5" /> <span className="font-mono">{entry.streak}d</span></span>
                       </div>
                     </div>
                   );
