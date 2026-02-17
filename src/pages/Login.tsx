@@ -66,7 +66,7 @@ export default function Login() {
             <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center shadow-xl shadow-primary/30">
               <Shield className="w-6 h-6 text-primary-foreground" />
             </div>
-            <span className="font-heading font-bold text-2xl">Elite PMBA</span>
+            <span className="font-heading font-bold text-2xl">Almeida Concursos</span>
           </div>
 
           <div className="space-y-3">
@@ -100,7 +100,7 @@ export default function Login() {
             <div className="mx-auto w-14 h-14 gradient-primary rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20">
               <Shield className="w-7 h-7 text-primary-foreground" />
             </div>
-            <h1 className="font-heading text-xl font-bold">Elite PMBA</h1>
+            <h1 className="font-heading text-xl font-bold">Almeida Concursos</h1>
           </div>
 
           <div className="space-y-2">

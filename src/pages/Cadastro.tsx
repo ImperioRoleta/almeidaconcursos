@@ -100,7 +100,7 @@ export default function Cadastro() {
             <div className="w-12 h-12 gradient-gold rounded-xl flex items-center justify-center shadow-xl shadow-accent/20">
               <Sparkles className="w-6 h-6 text-background" />
             </div>
-            <span className="font-heading font-bold text-2xl">Elite PMBA</span>
+            <span className="font-heading font-bold text-2xl">Almeida Concursos</span>
           </div>
 
           <div className="space-y-3">
