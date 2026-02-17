@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -23,37 +23,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-    });
+    let isMounted = true;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!user) {
-      setIsAdmin(false);
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
-
-    const fetchData = async () => {
+    const fetchUserData = async (userId: string) => {
       const [rolesRes, profileRes, subRes] = await Promise.all([
-        supabase.from("user_roles").select("role").eq("user_id", user.id),
-        supabase.from("profiles").select("*, levels(*)").eq("user_id", user.id).single(),
-        supabase.from("subscriptions").select("status").eq("user_id", user.id).single(),
+        supabase.from("user_roles").select("role").eq("user_id", userId),
+        supabase.from("profiles").select("*, levels(*)").eq("user_id", userId).single(),
+        supabase.from("subscriptions").select("status").eq("user_id", userId).single(),
       ]);
 
-      // If user is blocked, sign them out immediately
+      if (!isMounted) return;
+
       if (subRes.data?.status === "blocked") {
         await supabase.auth.signOut();
         return;
@@ -61,11 +44,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setIsAdmin(rolesRes.data?.some((r: any) => r.role === "admin") ?? false);
       setProfile(profileRes.data);
-      setLoading(false);
     };
 
-    fetchData();
-  }, [user]);
+    // Set up listener FIRST (before getSession)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, newSession) => {
+        if (!isMounted) return;
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+
+        if (newSession?.user) {
+          // Use setTimeout to avoid deadlocks with Supabase internals
+          setTimeout(() => {
+            if (isMounted) fetchUserData(newSession.user.id);
+          }, 0);
+        } else {
+          setIsAdmin(false);
+          setProfile(null);
+        }
+      }
+    );
+
+    // Initial session check
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+
+        if (currentSession?.user) {
+          await fetchUserData(currentSession.user.id);
+        }
+      } finally {
+        if (isMounted) {
+          initializedRef.current = true;
+          setLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
