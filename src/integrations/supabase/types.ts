@@ -486,6 +486,7 @@ export type Database = {
           created_at: string
           diagnostic_completed: boolean | null
           id: string
+          last_reset_at: string | null
           level_id: number | null
           name: string
           updated_at: string
@@ -496,6 +497,7 @@ export type Database = {
           created_at?: string
           diagnostic_completed?: boolean | null
           id?: string
+          last_reset_at?: string | null
           level_id?: number | null
           name?: string
           updated_at?: string
@@ -506,6 +508,7 @@ export type Database = {
           created_at?: string
           diagnostic_completed?: boolean | null
           id?: string
+          last_reset_at?: string | null
           level_id?: number | null
           name?: string
           updated_at?: string
@@ -1112,6 +1115,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_reset_user_data: {
+        Args: { _admin_user_id: string; _target_user_id: string }
+        Returns: Json
+      }
       admin_toggle_role: {
         Args: {
           _admin_user_id: string
@@ -1139,6 +1146,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      user_self_reset: { Args: never; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "user"
