@@ -1,97 +1,95 @@
 
-# Plano de Melhorias: Design de Aulas, Conquistas, Premium e Correções Gerais
 
-## 1. Correcar Conquistas de Redacao (Bug Critico)
+# Plano: Questoes na Aula + Redesign de Questoes + Progressao
 
-**Problema identificado:** A pagina de Conquistas (`Conquistas.tsx`) nao carrega dados de redacoes e nao reconhece a categoria `essays`. Especificamente:
-- Falta buscar dados da tabela `essays` para contar redacoes e notas
-- A funcao `getProgress` nao trata chaves `essay_*` / `first_essay` / `essay_score_*`
-- O auto-unlock ignora conquistas de redacao
-- Faltam labels e cores para a categoria `essays` nos mapas `categoryLabels` e `categoryColors`
+## 1. Questoes Integradas na Pagina da Aula
 
-**Solucao:**
-- Adicionar query de `essays` no `useEffect` do Conquistas
-- Mapear `essays` no `categoryLabels` (ex: "Redacoes") e `categoryColors`
-- Tratar `first_essay`, `essay_5`, `essay_10` por contagem total de redacoes
-- Tratar `essay_score_800` e `essay_score_1000` pela nota maxima do usuario
-- Adicionar stats de redacao ao painel de estatisticas do topo
+Apos o conteudo da aula, antes dos botoes de "Concluir" e "Proxima Aula", sera adicionada uma secao de questoes relacionadas ao assunto (topic_id da aula).
 
----
+**Funcionamento:**
+- Ao abrir a aula, busca questoes da tabela `questions` filtradas pelo `topic_id` da aula
+- Exibe as questoes em formato inline, sem sair da pagina
+- Questoes ja respondidas pelo usuario aparecem marcadas como "respondida" (checkmark visual)
+- O aluno pode responder quantas quiser antes de prosseguir
+- Feedback imediato (verde/vermelho) + explicacao apos responder
+- Contador de acertos (ex: "3/5 corretas") visivel
 
-## 2. Correcao: Politica de DELETE no user_progress (Bug)
-
-**Problema:** O botao "Recomeccar" nas materias nao funciona porque a tabela `user_progress` nao tem politica RLS para DELETE. A operacao falha silenciosamente.
-
-**Solucao:** Criar migracao adicionando:
-```text
-CREATE POLICY "Users delete own progress" ON public.user_progress
-  FOR DELETE TO authenticated USING (auth.uid() = user_id);
-```
+**Dados:** A tabela `questions` ja possui `topic_id` (uuid, nullable). As questoes que tiverem topic_id correspondente ao topico da aula serao exibidas.
 
 ---
 
-## 3. Redesign da Pagina de Aulas
+## 2. Redesign Completo da Pagina de Questoes (/questoes)
 
-**Melhorias visuais em todas as camadas:**
+**Vista de Materias (subject list):**
+- Cards com gradientes, icones coloridos, descricao e imagem (mesmo estilo da pagina de Aulas)
+- Progresso por materia: total de questoes respondidas vs disponiveis
+- Breadcrumb de navegacao (Materias > Materia X)
+- Banner de limite diario com design mais elegante
 
-### Materias (lista principal)
-- Cards maiores com gradientes sutis e icone/emoji da materia
-- Barra de progresso com animacao e cores diferenciadas por nivel de conclusao
-- Layout em grid responsivo mais elegante com hover effects
-- Contagem de assuntos dentro de cada materia
+**Vista de Questoes (pratica):**
+- Header com progresso visual (progress bar do lote atual)
+- Card da questao com design premium: numero da questao, badge de dificuldade
+- Opcoes com animacao de hover e feedback visual mais rico
+- Indicador lateral de questoes respondidas (dots/mini-timeline)
+- Painel lateral ou topo com stats em tempo real (acertos, taxa, tempo)
 
-### Assuntos (dentro da materia)
-- Cards com numeracao sequencial e descricao
-- Breadcrumb visual para navegacao (Materias > Materia X > Assuntos)
-- Indicador de progresso por assunto (aulas concluidas/total)
-
-### Lista de Aulas (dentro do assunto)
-- Design de timeline vertical conectando as aulas
-- Circulos numerados com status visual (concluida/pendente/premium)
-- Badges mais elegantes (VIDEO, PREMIUM, NOVA)
-- Thumbnail de imagem quando disponivel
-
-### Detalhe da Aula
-- Header mais imersivo com imagem de capa em destaque
-- Barra de navegacao fixa com progresso da materia
+**Questoes ja respondidas:**
+- Ao carregar questoes, buscar `user_answers` do usuario para aquele subject
+- Marcar visualmente questoes ja respondidas com icone de check
+- Permitir refazer, mas mostrar resultado anterior
 
 ---
 
-## 4. Restricoes Premium Ampliadas
+## 3. Progressao por Materia em Questoes
 
-**Novas restricoes para gratuitos:**
-- **Redacoes:** Limitar a 1 redacao por mes para gratuitos (ilimitado para premium)
-- **Ranking:** Acesso completo apenas para premium (gratuito ve apenas top 3)
-- **Questoes:** Limitar a 10 questoes/dia para gratuitos
-- **Revisoes:** Gate premium completo
-- **Aulas:** Apos as 3 primeiras aulas gratuitas, bloquear como premium
+Semelhante ao que existe em Aulas:
+- Na listagem de materias, exibir barra de progresso com total de questoes respondidas vs total disponivel
+- Contagem de questoes por materia
+- Taxa de acerto por materia (percentual)
+- Ao atingir 100%, botao de "Recomecar" (limpar answers daquela materia? Ou apenas mostrar novamente)
 
-**Implementacao:**
-- Adicionar verificacao `useSubscription` nas paginas afetadas
-- Mostrar contadores de uso diario/mensal com mensagens incentivando upgrade
-- Usar `PremiumGate` inline para conteudos parcialmente bloqueados
+**Dados utilizados:**
+- `questions` (count por subject_id)
+- `user_answers` (count por question.subject_id via join ou pre-fetch)
 
 ---
 
-## 5. Pente Fino - Correcoes Gerais
+## 4. Estado Persistente de "Respondida"
 
-- **Correcao de essay via edge function:** Ja foi corrigida na mensagem anterior com fallback de modelos. Verificar se esta deployada corretamente.
-- **upsert em user_progress:** Verificar se o `onConflict` funciona (precisa de unique constraint em `user_id, lesson_id`)
-- **Consistencia de navegacao:** Garantir breadcrumbs em todas as sub-paginas de Aulas
+- Ao carregar um lote de questoes, buscar todas as `user_answers` do usuario para aquelas question_ids
+- Exibir indicador visual (badge "Respondida", icone check) em questoes ja feitas
+- No mini-mapa de questoes (dots), diferenciar: nao respondida, respondida certa, respondida errada
+- Dentro da aula, mesmo comportamento: questoes do topico marcadas como respondidas
 
 ---
 
 ## Detalhes Tecnicos
 
-### Migracao de banco necessaria:
-- Adicionar politica DELETE em `user_progress`
-- Adicionar unique constraint `(user_id, lesson_id)` em `user_progress` se nao existir
-
 ### Arquivos a modificar:
-- `src/pages/Conquistas.tsx` - Fix essay achievements + category labels
-- `src/pages/Aulas.tsx` - Redesign completo com visual avancado
-- `src/pages/Redacoes.tsx` - Adicionar gate premium (limite gratuito)
-- `src/pages/Questoes.tsx` - Adicionar limite diario para gratuitos
-- `src/pages/Ranking.tsx` - Gate parcial para gratuitos
-- `src/pages/Revisoes.tsx` - Gate premium
-- `src/components/PremiumGate.tsx` - Adicionar variante de limite (ex: "3/10 questoes hoje")
+
+1. **`src/pages/Aulas.tsx`** — Na secao "Lesson Detail", adicionar componente de questoes inline apos o conteudo. Buscar questoes pelo `topic_id` do topico selecionado. Incluir logica de resposta e feedback.
+
+2. **`src/pages/Questoes.tsx`** — Redesign completo:
+   - Vista de materias com cards gradiente, progress bars, stats por materia
+   - Vista de pratica com design avancado, mini-mapa, feedback rico
+   - Carregar `user_answers` existentes para marcar questoes respondidas
+   - Breadcrumb de navegacao
+
+3. **Nenhuma migracao necessaria** — As tabelas `questions` (com `topic_id`), `question_options` e `user_answers` ja existem e suportam todas as funcionalidades.
+
+### Fluxo de dados para questoes na aula:
+```text
+Aula selecionada -> topic_id da aula
+  -> SELECT * FROM questions WHERE topic_id = <topic_id>
+  -> SELECT * FROM user_answers WHERE user_id = <user> AND question_id IN (...)
+  -> Renderizar questoes inline com status de respondida
+```
+
+### Fluxo de progressao em /questoes:
+```text
+Pagina carrega -> SELECT subject_id, count(*) FROM questions GROUP BY subject_id
+  -> SELECT question_id FROM user_answers WHERE user_id = <user>
+  -> Calcular % respondidas por materia
+  -> Exibir progress bars nos cards de materia
+```
+
