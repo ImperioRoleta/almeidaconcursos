@@ -13,14 +13,18 @@ const iconMap: Record<string, any> = {
 };
 
 const categoryLabels: Record<string, string> = {
-  questoes: "Questões", estudo: "Estudo", desempenho: "Desempenho",
-  streak: "Sequência", simulados: "Simulados", general: "Geral",
+  questoes: "🎯 Atirador — Questões",
+  estudo: "📚 Quartel de Estudos",
+  desempenho: "🏅 Operação Excelência",
+  streak: "🔥 Força Operacional",
+  simulados: "⚔️ Operações Simuladas",
+  general: "🎖️ Geral",
 };
 
 const categoryColors: Record<string, string> = {
   questoes: "bg-primary/10 text-primary",
   estudo: "bg-accent/10 text-accent",
-  desempenho: "bg-[hsl(142,71%,45%)]/10 text-[hsl(142,71%,45%)]",
+  desempenho: "bg-green-500/10 text-green-400",
   streak: "bg-[hsl(25,95%,53%)]/10 text-[hsl(25,95%,53%)]",
   simulados: "bg-[hsl(210,80%,55%)]/10 text-[hsl(210,80%,55%)]",
   general: "bg-muted text-muted-foreground",
