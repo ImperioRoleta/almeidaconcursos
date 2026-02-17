@@ -74,6 +74,54 @@ export type Database = {
         }
         Relationships: []
       }
+      coupons: {
+        Row: {
+          applicable_plans: string[] | null
+          code: string
+          created_at: string
+          current_uses: number
+          description: string | null
+          discount_type: string
+          discount_value: number
+          id: string
+          is_active: boolean
+          max_uses: number | null
+          min_amount: number | null
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          applicable_plans?: string[] | null
+          code: string
+          created_at?: string
+          current_uses?: number
+          description?: string | null
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          min_amount?: number | null
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          applicable_plans?: string[] | null
+          code?: string
+          created_at?: string
+          current_uses?: number
+          description?: string | null
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          min_amount?: number | null
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       diagnostic_results: {
         Row: {
           completed_at: string
@@ -253,6 +301,66 @@ export type Database = {
           reviewed_at?: string | null
           status?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      plans: {
+        Row: {
+          badge_text: string | null
+          billing_period: string
+          color: string | null
+          created_at: string
+          description: string | null
+          features: Json
+          id: string
+          image_url: string | null
+          is_active: boolean
+          is_blocked: boolean
+          is_featured: boolean
+          name: string
+          order_index: number
+          original_price: number | null
+          price: number
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          badge_text?: string | null
+          billing_period?: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          features?: Json
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          is_blocked?: boolean
+          is_featured?: boolean
+          name: string
+          order_index?: number
+          original_price?: number | null
+          price?: number
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          badge_text?: string | null
+          billing_period?: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          features?: Json
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          is_blocked?: boolean
+          is_featured?: boolean
+          name?: string
+          order_index?: number
+          original_price?: number | null
+          price?: number
+          slug?: string
+          updated_at?: string
         }
         Relationships: []
       }

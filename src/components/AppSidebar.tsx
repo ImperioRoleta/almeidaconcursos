@@ -35,6 +35,7 @@ import {
   Brain,
   Megaphone,
   ScrollText,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +63,7 @@ const adminItems = [
   { title: "IA Admin", url: "/admin/ia", icon: MessageSquare },
   { title: "Assinaturas", url: "/admin/assinaturas", icon: Crown },
   { title: "Pagamentos", url: "/admin/pagamentos", icon: CreditCard },
+  { title: "Planos & Cupons", url: "/admin/planos", icon: Package },
   { title: "Notificações", url: "/admin/notificacoes", icon: Megaphone },
   { title: "Logs", url: "/admin/logs", icon: ScrollText },
 ];

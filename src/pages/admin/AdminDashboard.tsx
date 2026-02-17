@@ -407,6 +407,7 @@ export default function AdminDashboard() {
             { label: "Questões", url: "/admin/questoes", icon: HelpCircle },
             { label: "Notificações", url: "/admin/notificacoes", icon: FileText },
             { label: "IA Admin", url: "/admin/ia", icon: Brain },
+            { label: "Planos & Cupons", url: "/admin/planos", icon: Crown },
             { label: "Logs", url: "/admin/logs", icon: ScrollText },
           ].map((item, i) => (
             <Link key={i} to={item.url}>
