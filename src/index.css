@@ -275,3 +275,30 @@
   background: hsl(210, 100%, 52%, 0.25);
   color: hsl(210, 20%, 98%);
 }
+
+/* Safe area for mobile bottom nav */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .stat-card .text-2xl {
+    font-size: 1.25rem;
+  }
+  
+  .stat-card .w-10 {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .stat-card .w-10 .w-5 {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  /* Tighter glass cards on mobile */
+  .glass-card {
+    border-radius: 0.625rem;
+  }
+}
