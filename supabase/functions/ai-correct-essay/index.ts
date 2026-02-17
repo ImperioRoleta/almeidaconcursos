@@ -30,93 +30,98 @@ serve(async (req) => {
     const { essay_id, content, title, theme } = await req.json();
     if (!essay_id || !content) throw new Error("Missing essay_id or content");
 
-    const systemPrompt = `Você é um corretor especializado de redações para concursos públicos e ENEM. 
-Analise a redação a seguir e forneça:
+    const systemPrompt = `Você é um corretor especializado de redações para concursos públicos e ENEM.
+Analise a redação e retorne APENAS um JSON válido (sem markdown, sem backticks) no formato:
+{
+  "score": <número 0-1000>,
+  "c1": <número 0-200>,
+  "c2": <número 0-200>,
+  "c3": <número 0-200>,
+  "c4": <número 0-200>,
+  "c5": <número 0-200>,
+  "feedback": "<feedback completo em markdown com: análise por competência, erros encontrados, pontos positivos, sugestões de melhoria>"
+}
 
-1. **NOTA GERAL** (0 a 1000, escala ENEM):
-   - Competência 1 (Domínio da norma culta): 0-200
-   - Competência 2 (Compreensão da proposta): 0-200
-   - Competência 3 (Argumentação): 0-200
-   - Competência 4 (Coesão textual): 0-200
-   - Competência 5 (Proposta de intervenção): 0-200
+Competências:
+- C1: Domínio da norma culta (0-200)
+- C2: Compreensão da proposta (0-200)
+- C3: Argumentação (0-200)
+- C4: Coesão textual (0-200)
+- C5: Proposta de intervenção (0-200)
 
-2. **FEEDBACK DETALHADO** por competência com exemplos do texto
+IMPORTANTE: Retorne SOMENTE o JSON, nada mais.`;
 
-3. **ERROS ENCONTRADOS**: Liste erros gramaticais, de concordância, ortografia, etc.
+    const userPrompt = `${theme ? `Tema: ${theme}\n` : ""}Título: ${title || "Sem título"}\n\nRedação:\n${content}`;
 
-4. **PONTOS POSITIVOS**: O que o aluno fez bem
+    // Try with primary model, fallback to secondary
+    const models = ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"];
+    let correction: any = null;
+    let score = 0;
+    let lastError = "";
 
-5. **SUGESTÕES DE MELHORIA**: Dicas práticas para a próxima redação
-
-Responda em markdown formatado.`;
-
-    const userPrompt = `${theme ? `**Tema:** ${theme}\n` : ""}**Título:** ${title || "Sem título"}\n\n**Redação:**\n${content}`;
-
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "submit_correction",
-            description: "Submit the essay correction with score and feedback",
-            parameters: {
-              type: "object",
-              properties: {
-                score: { type: "number", description: "Total score 0-1000" },
-                feedback: { type: "string", description: "Complete markdown feedback" },
-                competencies: {
-                  type: "object",
-                  properties: {
-                    c1: { type: "number" },
-                    c2: { type: "number" },
-                    c3: { type: "number" },
-                    c4: { type: "number" },
-                    c5: { type: "number" },
-                  },
-                  required: ["c1", "c2", "c3", "c4", "c5"],
-                },
-              },
-              required: ["score", "feedback", "competencies"],
-              additionalProperties: false,
-            },
+    for (const model of models) {
+      try {
+        console.log(`Trying model: ${model}`);
+        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
           },
-        }],
-        tool_choice: { type: "function", function: { name: "submit_correction" } },
-      }),
-    });
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.3,
+          }),
+        });
 
-    if (!aiResponse.ok) {
-      console.error("AI error:", aiResponse.status, await aiResponse.text());
-      throw new Error("AI correction failed");
+        if (!aiResponse.ok) {
+          lastError = `Model ${model} returned ${aiResponse.status}`;
+          console.error(lastError, await aiResponse.text());
+          continue;
+        }
+
+        const aiData = await aiResponse.json();
+        const rawContent = aiData.choices?.[0]?.message?.content || "";
+        console.log("AI raw response length:", rawContent.length);
+
+        // Extract JSON from response (handle markdown code blocks)
+        let jsonStr = rawContent.trim();
+        const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+          jsonStr = jsonMatch[1].trim();
+        }
+        // Also try to find JSON object directly
+        const objMatch = jsonStr.match(/\{[\s\S]*\}/);
+        if (objMatch) {
+          jsonStr = objMatch[0];
+        }
+
+        const parsed = JSON.parse(jsonStr);
+        score = Math.min(1000, Math.max(0, Math.round(parsed.score || 0)));
+        correction = {
+          feedback: parsed.feedback || "Correção realizada.",
+          competencies: {
+            c1: Math.min(200, Math.max(0, parsed.c1 || 0)),
+            c2: Math.min(200, Math.max(0, parsed.c2 || 0)),
+            c3: Math.min(200, Math.max(0, parsed.c3 || 0)),
+            c4: Math.min(200, Math.max(0, parsed.c4 || 0)),
+            c5: Math.min(200, Math.max(0, parsed.c5 || 0)),
+          },
+        };
+        break; // Success
+      } catch (modelErr) {
+        lastError = `Model ${model} error: ${modelErr}`;
+        console.error(lastError);
+        continue;
+      }
     }
 
-    const aiData = await aiResponse.json();
-    let correction: any;
-    let score = 0;
-
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    if (toolCall?.function?.arguments) {
-      const parsed = JSON.parse(toolCall.function.arguments);
-      score = Math.min(1000, Math.max(0, Math.round(parsed.score)));
-      correction = {
-        feedback: parsed.feedback,
-        competencies: parsed.competencies,
-      };
-    } else {
-      // Fallback: use message content
-      const msg = aiData.choices?.[0]?.message?.content || "Correção indisponível";
-      correction = { feedback: msg };
-      score = 500;
+    if (!correction) {
+      throw new Error(`All models failed. Last error: ${lastError}`);
     }
 
     // Update essay
