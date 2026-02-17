@@ -58,6 +58,19 @@ export default function Questoes() {
       is_correct: isCorrect,
     });
 
+    // Auto-enqueue wrong answers into spaced repetition review queue
+    if (!isCorrect) {
+      await supabase.from("review_queue").upsert({
+        user_id: user.id,
+        question_id: questions[currentIdx].id,
+        source: "wrong_answer",
+        interval_days: 1,
+        ease_factor: 2.5,
+        repetitions: 0,
+        next_review_at: new Date().toISOString(),
+      }, { onConflict: "user_id,question_id" });
+    }
+
     setStats(prev => ({ total: prev.total + 1, correct: prev.correct + (isCorrect ? 1 : 0) }));
   };
 

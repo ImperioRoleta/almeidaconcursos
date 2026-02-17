@@ -15,6 +15,7 @@ import Simulados from "./pages/Simulados";
 import IAChat from "./pages/IAChat";
 import Perfil from "./pages/Perfil";
 import PlanoEstudos from "./pages/PlanoEstudos";
+import Revisoes from "./pages/Revisoes";
 import Ranking from "./pages/Ranking";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsuarios from "./pages/admin/AdminUsuarios";
@@ -51,6 +52,7 @@ const App = () => (
               <Route path="/simulados" element={<Simulados />} />
               <Route path="/ia" element={<IAChat />} />
               <Route path="/plano" element={<PlanoEstudos />} />
+              <Route path="/revisoes" element={<Revisoes />} />
               <Route path="/ranking" element={<Ranking />} />
               <Route path="/conquistas" element={<Conquistas />} />
               <Route path="/assinatura" element={<Assinatura />} />

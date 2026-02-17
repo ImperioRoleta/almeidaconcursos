@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import UpgradePrompt from "@/components/UpgradePrompt";
+import StudyTrail from "@/components/StudyTrail";
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
@@ -194,6 +195,9 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Study Trail */}
+      <StudyTrail />
 
       {/* Quick actions + Achievements */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
