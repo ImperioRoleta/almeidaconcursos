@@ -84,11 +84,15 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-primary/20">
-            <Shield className="w-5 h-5 text-primary-foreground" />
-          </div>
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="" className="w-10 h-10 rounded-xl object-cover shrink-0 shadow-md" />
+          ) : (
+            <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-primary/20">
+              <Shield className="w-5 h-5 text-primary-foreground" />
+            </div>
+          )}
           <div className="min-w-0">
-            <h2 className="font-heading font-bold text-sm tracking-tight truncate">Almeida Concursos</h2>
+            <h2 className="font-heading font-bold text-sm tracking-tight truncate">{profile?.name || "Almeida Concursos"}</h2>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-[10px] text-muted-foreground truncate">{levelName}</span>
               {isActive && (
