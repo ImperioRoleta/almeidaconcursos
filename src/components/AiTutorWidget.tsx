@@ -66,7 +66,7 @@ export default function AiTutorWidget() {
           <span className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-primary" /> Tutor IA
           </span>
-          <Link to="/ia-chat" className="text-xs text-primary hover:underline">Abrir tutor →</Link>
+          <Link to="/ia" className="text-xs text-primary hover:underline">Abrir tutor →</Link>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -88,7 +88,7 @@ export default function AiTutorWidget() {
                 {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Compass className="w-3 h-3" />}
                 Nova sugestão
               </Button>
-              <Link to="/ia-chat" className="flex-1">
+              <Link to="/ia" className="flex-1">
                 <Button variant="outline" size="sm" className="text-xs gap-1 w-full">
                   <Sparkles className="w-3 h-3" /> Chat completo
                 </Button>

@@ -1,18 +1,35 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock, Target, BookOpen, Award, TrendingUp, BarChart3, Flame, Trophy, Zap } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { StudyTimer } from "@/components/StudyTimer";
-
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import UpgradePrompt from "@/components/UpgradePrompt";
-import StudyTrail from "@/components/StudyTrail";
-import AiTutorWidget from "@/components/AiTutorWidget";
+import DailyGoalWidget from "@/components/DailyGoalWidget";
+
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.08 },
+  },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const } },
+};
+
+const cardHover = {
+  rest: { scale: 1, y: 0 },
+  hover: { scale: 1.02, y: -4, transition: { duration: 0.25 } },
+};
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
@@ -93,7 +110,7 @@ export default function Dashboard() {
       setWeeklyData(days.map((day, i) => ({ day, horas: Math.round(weekData[i] * 10) / 10 })));
 
       const subjectMap: Record<string, { name: string; correct: number; total: number }> = {};
-      const subjects = subjectsRes.data ?? [];
+      const subjectsList = subjectsRes.data ?? [];
       const questionIds = [...new Set(answers.map(a => a.question_id))];
       if (questionIds.length > 0) {
         const { data: qs } = await supabase.from("questions").select("id, subject_id").in("id", questionIds);
@@ -102,7 +119,7 @@ export default function Dashboard() {
         answers.forEach(a => {
           const sid = qMap[a.question_id];
           if (!sid) return;
-          const sub = subjects.find(s => s.id === sid);
+          const sub = subjectsList.find(s => s.id === sid);
           if (!sub) return;
           if (!subjectMap[sid]) subjectMap[sid] = { name: sub.name, correct: 0, total: 0 };
           subjectMap[sid].total++;
@@ -119,7 +136,7 @@ export default function Dashboard() {
 
   const levelName = profile?.levels?.name || "Recruta";
   const isExpired = subscription?.expire_date && new Date(subscription.expire_date) < new Date();
-  const COLORS = ["hsl(217, 99%, 50%)", "hsl(0, 0%, 15%)"];
+  const COLORS = ["hsl(210, 100%, 52%)", "hsl(220, 14%, 14%)"];
   const pieData = [
     { name: "Acertos", value: stats.accuracy || 1 },
     { name: "Erros", value: (100 - stats.accuracy) || 1 },
@@ -134,54 +151,77 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <motion.div
+      className="space-y-6"
+      variants={container}
+      initial="hidden"
+      animate="show"
+    >
       {/* Welcome header */}
-      <div className="flex items-center gap-4">
+      <motion.div variants={item} className="flex items-center gap-4">
         <div>
           <h1 className="font-heading text-2xl font-bold">Olá, {profile?.name || "Aluno"} 👋</h1>
           <p className="text-muted-foreground">
             Continue evoluindo • <span className="text-accent font-semibold">{levelName}</span>
           </p>
         </div>
-      </div>
+      </motion.div>
 
       {/* Subscription warning */}
       {isExpired && (
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="font-heading font-semibold text-sm text-destructive">Sua assinatura expirou</p>
-              <p className="text-xs text-muted-foreground">Renove para continuar acessando o conteúdo premium.</p>
-            </div>
-            <Link to="/assinatura">
-              <Button size="sm" variant="outline" className="border-destructive/30 text-destructive">Renovar</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      )}
-
-      <StudyTimer />
-
-      {/* Premium upgrade banner */}
-      <UpgradePrompt context="Estude sem limites: questões, simulados, IA e plano personalizado" />
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3 stagger-children">
-        {cards.map((c, i) => (
-          <Card key={i} className="stat-card">
-            <CardContent className="p-3 md:p-4">
-              <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br ${c.gradient} flex items-center justify-center mb-2 md:mb-3`}>
-                <c.icon className={`w-4 h-4 md:w-5 md:h-5 ${c.iconColor}`} />
+        <motion.div variants={item}>
+          <Card className="border-destructive/30 bg-destructive/5">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="font-heading font-semibold text-sm text-destructive">Sua assinatura expirou</p>
+                <p className="text-xs text-muted-foreground">Renove para continuar acessando o conteúdo premium.</p>
               </div>
-              <p className="text-[9px] md:text-[11px] text-muted-foreground uppercase tracking-wider font-medium leading-tight">{c.label}</p>
-              <p className="text-lg md:text-2xl font-heading font-bold font-mono mt-0.5">{c.value}</p>
+              <Link to="/assinatura">
+                <Button size="sm" variant="outline" className="border-destructive/30 text-destructive">Renovar</Button>
+              </Link>
             </CardContent>
           </Card>
-        ))}
-      </div>
+        </motion.div>
+      )}
 
-      {/* Quick actions + AI Tutor + Achievements */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <motion.div variants={item}>
+        <StudyTimer />
+      </motion.div>
+
+      {/* Premium upgrade banner */}
+      <motion.div variants={item}>
+        <UpgradePrompt context="Estude sem limites: questões, simulados, IA e plano personalizado" />
+      </motion.div>
+
+      {/* Daily Goal Widget */}
+      <DailyGoalWidget />
+
+      {/* Stats Cards */}
+      <motion.div
+        className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3"
+        variants={container}
+        initial="hidden"
+        animate="show"
+      >
+        {cards.map((c, i) => (
+          <motion.div key={i} variants={item} whileHover="hover" initial="rest" animate="rest">
+            <motion.div variants={cardHover}>
+              <Card className="stat-card">
+                <CardContent className="p-3 md:p-4">
+                  <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br ${c.gradient} flex items-center justify-center mb-2 md:mb-3`}>
+                    <c.icon className={`w-4 h-4 md:w-5 md:h-5 ${c.iconColor}`} />
+                  </div>
+                  <p className="text-[9px] md:text-[11px] text-muted-foreground uppercase tracking-wider font-medium leading-tight">{c.label}</p>
+                  <p className="text-lg md:text-2xl font-heading font-bold font-mono mt-0.5">{c.value}</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* Quick actions + Achievements */}
+      <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Quick actions */}
         <Card className="glass-card">
           <CardHeader className="pb-2">
@@ -195,18 +235,15 @@ export default function Dashboard() {
               { label: "Simulado", url: "/simulados", icon: BarChart3 },
               { label: "Aulas", url: "/aulas", icon: BookOpen },
               { label: "Ranking", url: "/ranking", icon: Trophy },
-            ].map((item, i) => (
-              <Link key={i} to={item.url}>
+            ].map((navItem, i) => (
+              <Link key={i} to={navItem.url}>
                 <Button variant="outline" className="w-full justify-start gap-2 h-10">
-                  <item.icon className="w-4 h-4 text-primary" /> {item.label}
+                  <navItem.icon className="w-4 h-4 text-primary" /> {navItem.label}
                 </Button>
               </Link>
             ))}
           </CardContent>
         </Card>
-
-        {/* AI Tutor Widget */}
-        <AiTutorWidget />
 
         {/* Achievements summary */}
         <Card className="glass-card">
@@ -234,10 +271,10 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="glass-card overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="font-heading text-base flex items-center gap-2">
@@ -250,10 +287,10 @@ export default function Dashboard() {
           <CardContent className="pb-4">
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={weeklyData}>
-                <XAxis dataKey="day" stroke="hsl(0, 0%, 40%)" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="hsl(0, 0%, 40%)" fontSize={11} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(0, 0%, 7%)", border: "1px solid hsl(0, 0%, 15%)", borderRadius: "8px", color: "#fff", fontSize: "12px" }} />
-                <Bar dataKey="horas" fill="hsl(217, 99%, 50%)" radius={[6, 6, 0, 0]} />
+                <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--foreground))", fontSize: "12px" }} />
+                <Bar dataKey="horas" fill="hsl(210, 100%, 52%)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -282,34 +319,33 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Subject Performance */}
       {subjectStats.length > 0 && (
-        <Card className="glass-card overflow-hidden">
-          <CardHeader className="pb-2">
-            <CardTitle className="font-heading text-base flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                <BarChart3 className="w-4 h-4 text-accent" />
-              </div>
-              Desempenho por Matéria
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-4">
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={subjectStats} layout="vertical">
-                <XAxis type="number" domain={[0, 100]} stroke="hsl(0, 0%, 40%)" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis type="category" dataKey="name" stroke="hsl(0, 0%, 40%)" fontSize={11} width={100} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(0, 0%, 7%)", border: "1px solid hsl(0, 0%, 15%)", borderRadius: "8px", color: "#fff", fontSize: "12px" }} />
-                <Bar dataKey="acerto" fill="hsl(43, 76%, 53%)" radius={[0, 6, 6, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <motion.div variants={item}>
+          <Card className="glass-card overflow-hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="font-heading text-base flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <BarChart3 className="w-4 h-4 text-accent" />
+                </div>
+                Desempenho por Matéria
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pb-4">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={subjectStats} layout="vertical">
+                  <XAxis type="number" domain={[0, 100]} stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} width={100} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", color: "hsl(var(--foreground))", fontSize: "12px" }} />
+                  <Bar dataKey="acerto" fill="hsl(38, 92%, 50%)" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </motion.div>
       )}
-
-      {/* Study Trail - at the bottom for focused study flow */}
-      <StudyTrail />
-    </div>
+    </motion.div>
   );
 }
