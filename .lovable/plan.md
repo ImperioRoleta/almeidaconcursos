@@ -1,116 +1,97 @@
 
+# Plano de Melhorias: Design de Aulas, Conquistas, Premium e Correções Gerais
 
-# Elite PMBA — Plataforma Educacional Premium
+## 1. Correcar Conquistas de Redacao (Bug Critico)
 
-## Visão Geral
-Plataforma educacional completa para preparação ao concurso SD PMBA, com tema dark premium, dados isolados por usuário, backend real com Supabase (Lovable Cloud), e IA integrada via Lovable AI (Gemini).
+**Problema identificado:** A pagina de Conquistas (`Conquistas.tsx`) nao carrega dados de redacoes e nao reconhece a categoria `essays`. Especificamente:
+- Falta buscar dados da tabela `essays` para contar redacoes e notas
+- A funcao `getProgress` nao trata chaves `essay_*` / `first_essay` / `essay_score_*`
+- O auto-unlock ignora conquistas de redacao
+- Faltam labels e cores para a categoria `essays` nos mapas `categoryLabels` e `categoryColors`
 
----
-
-## 1. Infraestrutura e Autenticação
-- **Lovable Cloud** com PostgreSQL (Supabase) como backend
-- Autenticação via Supabase Auth (email/senha, sem confirmação de email)
-- Sistema de roles (`admin`, `user`) em tabela separada com função `has_role` (security definer)
-- Admin automático: `almeidatheus487@gmail.com` criado via migration com role admin
-- RLS em todas as tabelas — cada usuário só acessa seus próprios dados
-- Proteção de rotas no frontend por role
-
-## 2. Identidade Visual — Dark Premium
-- Tema dark com a paleta especificada (#0A0A0A, #0F62FE, #D4AF37, etc.)
-- Fontes: Poppins (títulos), Inter (corpo), JetBrains Mono (métricas)
-- Sidebar fixa com navegação contextual (aluno vs admin)
-- Cards com profundidade, animações suaves, hierarquia visual clara
-- Responsivo mobile-first
-
-## 3. Modelo de Dados (PostgreSQL via Supabase)
-Tabelas principais com chaves estrangeiras reais:
-- `profiles` (nome, avatar, nivel_id)
-- `user_roles` (role admin/user)
-- `subscriptions` (plano, status, validade)
-- `levels` (Recruta → Oficial de Mérito)
-- `subjects` (matérias)
-- `topics` (assuntos por matéria)
-- `lessons` (aulas por assunto)
-- `questions` + `question_options`
-- `user_answers` (respostas individuais)
-- `user_progress` (progresso por aula/assunto)
-- `study_sessions` (início, fim, duração real em segundos)
-- `simulations` + `simulation_results`
-- `activity_logs`
-
-Todas com RLS filtrando por `auth.uid()`.
-
-## 4. Área do Aluno
-- **Dashboard** com métricas reais: horas estudadas, taxa de acerto, nível PM, progresso por disciplina
-- **Gráficos** (Recharts): evolução semanal, acertos por disciplina, tempo de estudo
-- **Aulas**: navegação Matéria → Assunto → Aula, marcar como concluída
-- **Questões**: responder, ver correção e explicação, histórico individual
-- **Simulados**: gerar simulado, cronômetro, correção automática, resultado persistente
-- **Cronômetro de estudo**: sessão real com início/pausa/fim, persistido no banco
-- **Perfil**: dados pessoais, nível, estatísticas
-
-## 5. Sistema de Níveis PM
-Hierarquia automática baseada em acertos + horas + consistência:
-- Recruta → Soldado em Formação → Soldado Operacional → Cabo Acadêmico → Sargento de Elite → Oficial de Mérito
-- Promoção calculada automaticamente ao completar atividades
-
-## 6. IA do Aluno (Lovable AI — Gemini)
-Via Edge Function com streaming:
-- Explicar conteúdos do edital
-- Resolver e explicar questões
-- Resumir aulas
-- Criar plano de estudo personalizado
-- Chat contextual educacional
-
-## 7. Painel Administrativo
-- **Dashboard admin**: total de alunos, atividade recente, conteúdos criados
-- **Gestão de usuários**: listar, editar, bloquear, alterar plano, ver desempenho
-- **Gestão acadêmica**: CRUD completo de matérias, assuntos e aulas
-- **Banco de questões**: CRUD com organização hierárquica
-- **Gestão de assinaturas**: atribuir/alterar planos (gratuito, premium mensal, premium anual)
-
-## 8. IA Administrativa (Lovable AI — Gemini)
-Via Edge Function dedicada:
-- Gerar aulas completas estruturadas por matéria/assunto
-- Gerar questões com alternativas e explicação
-- Gerar simulados completos
-- Preview antes de publicar
-- Salvar automaticamente no banco
-
-## 9. Conteúdo Inicial
-Gerado automaticamente na primeira execução via IA ou seed data:
-- Disciplinas do edital SD PMBA (Português, Direito Penal, Constitucional, Administrativo, etc.)
-- ~20 aulas iniciais distribuídas pelas disciplinas
-- ~80 questões com alternativas e explicações
-
-## 10. Sistema de Assinaturas (Sem Pagamento)
-- Planos: Gratuito, Premium Mensal, Premium Anual
-- Controlado manualmente pelo admin
-- Acesso a recursos condicionado ao plano ativo
-- Tabela com status, datas de início e expiração
-
-## 11. Páginas e Navegação
-
-**Visitante:** Landing page → Cadastro → Login
-
-**Aluno:** Dashboard → Aulas → Questões → Simulados → IA Chat → Perfil
-
-**Admin:** Dashboard Admin → Usuários → Conteúdo (Matérias/Assuntos/Aulas) → Questões → IA Admin → Assinaturas
+**Solucao:**
+- Adicionar query de `essays` no `useEffect` do Conquistas
+- Mapear `essays` no `categoryLabels` (ex: "Redacoes") e `categoryColors`
+- Tratar `first_essay`, `essay_5`, `essay_10` por contagem total de redacoes
+- Tratar `essay_score_800` e `essay_score_1000` pela nota maxima do usuario
+- Adicionar stats de redacao ao painel de estatisticas do topo
 
 ---
 
-## Ordem de Implementação
-1. Lovable Cloud + banco de dados + autenticação + admin seed
-2. Tema dark premium + layout com sidebar
-3. Landing page + cadastro + login
-4. Dashboard do aluno + cronômetro de estudo
-5. Sistema educacional (matérias, assuntos, aulas)
-6. Banco de questões + respostas
-7. Sistema de níveis PM
-8. Simulados
-9. IA do aluno (Edge Function + chat)
-10. Painel admin completo
-11. IA administrativa
-12. Conteúdo inicial (seed)
-13. Sistema de assinaturas
+## 2. Correcao: Politica de DELETE no user_progress (Bug)
 
+**Problema:** O botao "Recomeccar" nas materias nao funciona porque a tabela `user_progress` nao tem politica RLS para DELETE. A operacao falha silenciosamente.
+
+**Solucao:** Criar migracao adicionando:
+```text
+CREATE POLICY "Users delete own progress" ON public.user_progress
+  FOR DELETE TO authenticated USING (auth.uid() = user_id);
+```
+
+---
+
+## 3. Redesign da Pagina de Aulas
+
+**Melhorias visuais em todas as camadas:**
+
+### Materias (lista principal)
+- Cards maiores com gradientes sutis e icone/emoji da materia
+- Barra de progresso com animacao e cores diferenciadas por nivel de conclusao
+- Layout em grid responsivo mais elegante com hover effects
+- Contagem de assuntos dentro de cada materia
+
+### Assuntos (dentro da materia)
+- Cards com numeracao sequencial e descricao
+- Breadcrumb visual para navegacao (Materias > Materia X > Assuntos)
+- Indicador de progresso por assunto (aulas concluidas/total)
+
+### Lista de Aulas (dentro do assunto)
+- Design de timeline vertical conectando as aulas
+- Circulos numerados com status visual (concluida/pendente/premium)
+- Badges mais elegantes (VIDEO, PREMIUM, NOVA)
+- Thumbnail de imagem quando disponivel
+
+### Detalhe da Aula
+- Header mais imersivo com imagem de capa em destaque
+- Barra de navegacao fixa com progresso da materia
+
+---
+
+## 4. Restricoes Premium Ampliadas
+
+**Novas restricoes para gratuitos:**
+- **Redacoes:** Limitar a 1 redacao por mes para gratuitos (ilimitado para premium)
+- **Ranking:** Acesso completo apenas para premium (gratuito ve apenas top 3)
+- **Questoes:** Limitar a 10 questoes/dia para gratuitos
+- **Revisoes:** Gate premium completo
+- **Aulas:** Apos as 3 primeiras aulas gratuitas, bloquear como premium
+
+**Implementacao:**
+- Adicionar verificacao `useSubscription` nas paginas afetadas
+- Mostrar contadores de uso diario/mensal com mensagens incentivando upgrade
+- Usar `PremiumGate` inline para conteudos parcialmente bloqueados
+
+---
+
+## 5. Pente Fino - Correcoes Gerais
+
+- **Correcao de essay via edge function:** Ja foi corrigida na mensagem anterior com fallback de modelos. Verificar se esta deployada corretamente.
+- **upsert em user_progress:** Verificar se o `onConflict` funciona (precisa de unique constraint em `user_id, lesson_id`)
+- **Consistencia de navegacao:** Garantir breadcrumbs em todas as sub-paginas de Aulas
+
+---
+
+## Detalhes Tecnicos
+
+### Migracao de banco necessaria:
+- Adicionar politica DELETE em `user_progress`
+- Adicionar unique constraint `(user_id, lesson_id)` em `user_progress` se nao existir
+
+### Arquivos a modificar:
+- `src/pages/Conquistas.tsx` - Fix essay achievements + category labels
+- `src/pages/Aulas.tsx` - Redesign completo com visual avancado
+- `src/pages/Redacoes.tsx` - Adicionar gate premium (limite gratuito)
+- `src/pages/Questoes.tsx` - Adicionar limite diario para gratuitos
+- `src/pages/Ranking.tsx` - Gate parcial para gratuitos
+- `src/pages/Revisoes.tsx` - Gate premium
+- `src/components/PremiumGate.tsx` - Adicionar variante de limite (ex: "3/10 questoes hoje")
