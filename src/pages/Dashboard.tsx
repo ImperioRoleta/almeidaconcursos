@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 import UpgradePrompt from "@/components/UpgradePrompt";
 import StudyTrail from "@/components/StudyTrail";
+import AiTutorWidget from "@/components/AiTutorWidget";
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
@@ -198,6 +199,9 @@ export default function Dashboard() {
 
       {/* Study Trail */}
       <StudyTrail />
+
+      {/* AI Tutor Widget */}
+      <AiTutorWidget />
 
       {/* Quick actions + Achievements */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
