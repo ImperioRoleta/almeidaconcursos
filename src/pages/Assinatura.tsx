@@ -98,44 +98,16 @@ export default function Assinatura() {
   const validateCoupon = async () => {
     if (!couponCode.trim()) return;
     setCouponLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("coupons")
-        .select("*")
-        .eq("code", couponCode.toUpperCase().trim())
-        .eq("is_active", true)
-        .single();
-
-      if (error || !data) {
-        toast.error("Cupom inválido ou não encontrado");
-        setCouponLoading(false);
-        return;
-      }
-
-      // Check expiration
-      if (data.valid_until && new Date(data.valid_until) < new Date()) {
-        toast.error("Este cupom já expirou");
-        setCouponLoading(false);
-        return;
-      }
-
-      // Check uses
-      if (data.max_uses && data.current_uses >= data.max_uses) {
-        toast.error("Este cupom já atingiu o limite de usos");
-        setCouponLoading(false);
-        return;
-      }
-
-      setAppliedCoupon({
-        code: data.code,
-        discount_type: data.discount_type,
-        discount_value: data.discount_value,
-        description: data.description,
-      });
-      toast.success(`Cupom "${data.code}" aplicado!`);
-    } catch {
-      toast.error("Erro ao validar cupom");
-    }
+    // Coupon will be validated server-side during checkout.
+    // Here we just store the code for sending to the server.
+    const code = couponCode.toUpperCase().trim();
+    setAppliedCoupon({
+      code,
+      discount_type: "percentage",
+      discount_value: 0,
+      description: `Cupom "${code}" será validado no checkout`,
+    });
+    toast.success(`Cupom "${code}" será aplicado no checkout`);
     setCouponLoading(false);
   };
 

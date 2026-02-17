@@ -36,21 +36,8 @@ export default function PromoBanner() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from("coupons")
-        .select("id, code, description, discount_type, discount_value, valid_until")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(1);
-      if (data && data.length > 0) {
-        const c = data[0];
-        const now = new Date();
-        if (c.valid_until && new Date(c.valid_until) < now) return;
-        setCoupon(c);
-      }
-    };
-    load();
+    // Coupons are no longer publicly readable for security.
+    // Coupon codes are validated server-side at checkout.
   }, []);
 
   if (!coupon || dismissed) return null;

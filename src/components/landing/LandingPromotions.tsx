@@ -76,21 +76,13 @@ export default function LandingPromotions() {
 
   useEffect(() => {
     const load = async () => {
-      const [plansRes, couponsRes] = await Promise.all([
-        supabase.from("plans").select("*").eq("is_active", true).eq("is_blocked", false).not("original_price", "is", null).order("order_index"),
-        supabase.from("coupons").select("*").eq("is_active", true).order("created_at", { ascending: false }),
-      ]);
+      const plansRes = await supabase.from("plans").select("*").eq("is_active", true).eq("is_blocked", false).not("original_price", "is", null).order("order_index");
 
       const plans = (plansRes.data ?? []) as Plan[];
       setPromoPlans(plans.filter(p => p.original_price && p.original_price > p.price));
 
-      const now = new Date();
-      const validCoupons = ((couponsRes.data ?? []) as Coupon[]).filter(c => {
-        if (c.valid_until && new Date(c.valid_until) < now) return false;
-        if (c.max_uses && c.current_uses >= c.max_uses) return false;
-        return true;
-      });
-      setActiveCoupons(validCoupons);
+      // Coupons are no longer publicly readable for security.
+      setActiveCoupons([]);
       setLoading(false);
     };
     load();

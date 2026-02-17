@@ -28,10 +28,26 @@ serve(async (req) => {
         });
       }
 
-      // Fetch payment details from MP
+      // Validate paymentId is a number to prevent injection
+      if (typeof paymentId !== "number" && !/^\d+$/.test(String(paymentId))) {
+        console.error("Invalid payment ID format:", paymentId);
+        return new Response(JSON.stringify({ ok: true, msg: "Invalid payment id format" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Fetch payment details from MP to verify authenticity
       const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` },
       });
+
+      if (!mpRes.ok) {
+        console.error("MP API returned error for payment:", paymentId, mpRes.status);
+        return new Response(JSON.stringify({ ok: true, msg: "Payment not found in MP" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const payment = await mpRes.json();
       console.log("Payment status:", payment.status, "external_reference:", payment.external_reference);
 
@@ -44,6 +60,36 @@ serve(async (req) => {
         });
       }
 
+      // Validate external_reference is a valid UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(externalRef)) {
+        console.error("Invalid external_reference format:", externalRef);
+        return new Response(JSON.stringify({ ok: true, msg: "Invalid external reference" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify the payment request exists and is still pending (idempotency)
+      const { data: existingReq } = await supabase.from("payment_requests")
+        .select("id, status, user_id")
+        .eq("id", externalRef)
+        .single();
+
+      if (!existingReq) {
+        console.error("Payment request not found:", externalRef);
+        return new Response(JSON.stringify({ ok: true, msg: "Payment request not found" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Skip if already processed (idempotency)
+      if (existingReq.status === "approved" || existingReq.status === "rejected") {
+        console.log("Payment request already processed:", externalRef, existingReq.status);
+        return new Response(JSON.stringify({ ok: true, msg: "Already processed" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       // Update payment request
       await supabase.from("payment_requests").update({
         mp_payment_id: String(paymentId),
@@ -52,7 +98,7 @@ serve(async (req) => {
         reviewed_at: status === "approved" || status === "rejected" ? new Date().toISOString() : null,
       }).eq("id", externalRef);
 
-      // If approved, activate subscription + send email
+      // If approved, activate subscription
       if (status === "approved") {
         const { data: payReq } = await supabase.from("payment_requests")
           .select("*").eq("id", externalRef).single();
@@ -79,7 +125,7 @@ serve(async (req) => {
 
           console.log(`Subscription activated for user ${payReq.user_id}, plan ${payReq.plan}, expires ${expireDate.toISOString()}`);
 
-          // Send thank-you email via Supabase Auth (uses built-in email)
+          // Log the payment confirmation
           try {
             const { data: userData } = await supabase.auth.admin.getUserById(payReq.user_id);
             const userEmail = userData?.user?.email;
@@ -87,7 +133,6 @@ serve(async (req) => {
             const planName = payReq.plan === "premium_anual" ? "Premium Anual" : "Premium Mensal";
 
             if (userEmail) {
-              // Log the email event (Supabase doesn't have built-in transactional email, so we log it)
               await supabase.from("activity_logs").insert({
                 user_id: payReq.user_id,
                 action: "payment_confirmed",
@@ -96,8 +141,6 @@ serve(async (req) => {
                   plan_name: planName,
                   amount: payReq.amount,
                   mp_payment_id: String(paymentId),
-                  email: userEmail,
-                  name: userName,
                   expire_date: expireDate.toISOString(),
                 },
               });
@@ -115,7 +158,7 @@ serve(async (req) => {
     });
   } catch (error: any) {
     console.error("Webhook error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: "Internal error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
