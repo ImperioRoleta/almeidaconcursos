@@ -11,12 +11,46 @@ serve(async (req) => {
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+    // Authenticate the caller
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Não autenticado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Não autenticado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const userId = claimsData.claims.sub;
+
+    // Verify admin role
+    const serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    const { data: isAdmin } = await serviceClient.rpc("has_role", { _user_id: userId, _role: "admin" });
+    if (!isAdmin) {
+      return new Response(JSON.stringify({ error: "Sem permissão" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Find all active subscriptions that have expired
     const now = new Date().toISOString();
-    const { data: expired, error } = await supabase
+    const { data: expired, error } = await serviceClient
       .from("subscriptions")
       .select("id, user_id, plan, expire_date")
       .eq("status", "active")
@@ -27,7 +61,7 @@ serve(async (req) => {
 
     let count = 0;
     for (const sub of expired ?? []) {
-      await supabase.from("subscriptions").update({
+      await serviceClient.from("subscriptions").update({
         plan: "gratuito",
         status: "active",
         expire_date: null,
@@ -42,7 +76,7 @@ serve(async (req) => {
     });
   } catch (error: any) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: "Erro interno do servidor" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

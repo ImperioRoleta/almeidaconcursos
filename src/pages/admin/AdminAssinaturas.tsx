@@ -155,11 +155,17 @@ export default function AdminAssinaturas() {
   const runExpiredCheck = async () => {
     setCheckingExpired(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) { toast.error("Você precisa estar logado"); setCheckingExpired(false); return; }
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-expired-subscriptions`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
       const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Erro ao verificar"); setCheckingExpired(false); return; }
       toast.success(`${data.expired_count || 0} assinatura(s) expirada(s) processada(s).`);
       fetchSubs();
     } catch { toast.error("Erro ao verificar"); }
