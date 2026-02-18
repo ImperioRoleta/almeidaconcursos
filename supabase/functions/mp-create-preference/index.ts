@@ -117,7 +117,16 @@ serve(async (req) => {
     }
 
     // Identify base url
-    const baseUrl = req.headers.get("origin") || "https://almeidaconcursos.lovable.app";
+    let baseUrl = req.headers.get("origin");
+    if (!baseUrl || baseUrl === "null") {
+      baseUrl = "https://almeidaconcursos.lovable.app";
+    }
+    // Remove trailing slash if present
+    if (baseUrl.endsWith("/")) {
+      baseUrl = baseUrl.slice(0, -1);
+    }
+
+    console.log("Creating MP Preference with Base URL:", baseUrl);
 
     // Create payment request
     const { data: paymentReq, error: insertError } = await adminClient.from("payment_requests").insert({
@@ -133,25 +142,7 @@ serve(async (req) => {
     // If price is 0 (100% discount), we could skip MP entirely or handle differently.
     // For now, Mercado Pago requires unit_price > 0.
     if (finalPrice <= 0) {
-      // Handle 100% discount flow (auto-approve)
-      // Update payment request to approved
-      await adminClient.from("payment_requests").update({
-        status: "approved",
-        updated_at: new Date().toISOString()
-      }).eq("id", paymentReq.id);
-
-      // Grant subscription logic would duplicate webhook logic.
-      // Ideally call a shared logic or return a special "approved" signal.
-      // But Assinatura.tsx expects init_point.
-      // We can return a successful JSON without init_point and handle in frontend?
-      // Current frontend throws "Resposta inválida do servidor" if init_point is missing.
-      // So we MUST return init_point OR frontend update is needed. 
-      // For now, let's assume huge discounts result in 0.01 at least if not fully free?
-      // Or throw error "Valor inválido" if 0.
-      // Let's set a minimum of 0.01 just in case, or handle it properly.
-      // If price is 0, we can't create MP preference.
-
-      if (finalPrice === 0) {
+      if (finalPrice <= 0) {
         // Auto-grant logic
         const { error: grantError } = await adminClient.from("subscriptions").upsert({
           user_id: userId,
@@ -161,6 +152,12 @@ serve(async (req) => {
         });
 
         if (grantError) throw new Error("Erro ao ativar assinatura gratuita: " + grantError.message);
+
+        // Update payment request to approved
+        await adminClient.from("payment_requests").update({
+          status: "approved",
+          updated_at: new Date().toISOString()
+        }).eq("id", paymentReq.id);
 
         return new Response(JSON.stringify({
           message: "Assinatura ativada com sucesso!",
@@ -172,42 +169,53 @@ serve(async (req) => {
       }
     }
 
+    console.log("Creating MP Preference with Base URL:", baseUrl);
+
+    const backUrls = {
+      success: `${baseUrl}/assinatura?status=approved`,
+      failure: `${baseUrl}/assinatura?status=rejected`,
+      pending: `${baseUrl}/assinatura?status=pending`,
+    };
+
+    console.log("Back URLs:", JSON.stringify(backUrls));
+
     // Create Mercado Pago preference
+    const isLocalhost = baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1");
+
+    const preferenceBody = {
+      items: [{
+        title: appliedCouponCode ? `${planName} (Cupom: ${appliedCouponCode})` : planName,
+        quantity: 1,
+        unit_price: finalPrice,
+        currency_id: "BRL",
+      }],
+      payer: { email: userEmail },
+      back_urls: backUrls,
+      auto_return: isLocalhost ? undefined : "approved",
+      external_reference: paymentReq.id,
+      notification_url: `${SUPABASE_URL}/functions/v1/mp-webhook`,
+      metadata: {
+        user_id: userId,
+        plan,
+        payment_request_id: paymentReq.id,
+        days: days,
+        coupon_code: appliedCouponCode,
+      },
+    };
+
     const mpResponse = await fetch("https://api.mercadopago.com/checkout/preferences", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
       },
-      body: JSON.stringify({
-        items: [{
-          title: appliedCouponCode ? `${planName} (Cupom: ${appliedCouponCode})` : planName,
-          quantity: 1,
-          unit_price: finalPrice,
-          currency_id: "BRL",
-        }],
-        payer: { email: userEmail },
-        back_urls: {
-          success: `${baseUrl}/assinatura?status=approved`,
-          failure: `${baseUrl}/assinatura?status=rejected`,
-          pending: `${baseUrl}/assinatura?status=pending`,
-        },
-        auto_return: "approved",
-        external_reference: paymentReq.id,
-        notification_url: `${SUPABASE_URL}/functions/v1/mp-webhook`,
-        metadata: {
-          user_id: userId,
-          plan,
-          payment_request_id: paymentReq.id,
-          days: days,
-          coupon_code: appliedCouponCode,
-        },
-      }),
+      body: JSON.stringify(preferenceBody),
     });
 
     const mpData = await mpResponse.json();
     if (!mpResponse.ok) {
-      console.error("Mercado Pago Error Body:", mpData);
+      console.error("Mercado Pago Error Body:", JSON.stringify(mpData));
+      console.error("Sent Body:", JSON.stringify(preferenceBody));
       throw new Error(`Mercado Pago error: ${mpData.message || JSON.stringify(mpData)}`);
     }
 
