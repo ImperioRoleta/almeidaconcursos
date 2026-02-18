@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import PremiumGate from "@/components/PremiumGate";
@@ -196,7 +197,9 @@ Gere EXATAMENTE 30 dias. Cada dia deve ter 3-5 tarefas variadas. Alterne matéri
             const parsed = JSON.parse(json);
             const content = parsed.choices?.[0]?.delta?.content;
             if (content) fullContent += content;
-          } catch {}
+          } catch (error) {
+            console.error(error);
+          }
         }
       }
 

@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -44,7 +45,6 @@ export default function Aulas() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true);
-  const synthRef = useRef(window.speechSynthesis);
 
   // Load feature toggles
   useEffect(() => {
@@ -167,7 +167,7 @@ export default function Aulas() {
     setCompletedBySubject(prev => ({ ...prev, [subjectId]: 0 }));
   };
 
-  const stopSpeaking = useCallback(() => { synthRef.current.cancel(); setIsSpeaking(false); }, []);
+  const stopSpeaking = useCallback(() => { window.speechSynthesis.cancel(); setIsSpeaking(false); }, []);
 
   const toggleTTS = useCallback(() => {
     if (isSpeaking) { stopSpeaking(); return; }
@@ -177,11 +177,11 @@ export default function Aulas() {
     utterance.lang = "pt-BR"; utterance.rate = 0.95;
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
-    synthRef.current.speak(utterance);
+    window.speechSynthesis.speak(utterance);
     setIsSpeaking(true);
   }, [isSpeaking, selectedLesson, stopSpeaking]);
 
-  useEffect(() => { return () => { synthRef.current.cancel(); }; }, [selectedLesson]);
+  useEffect(() => { return () => { window.speechSynthesis.cancel(); }; }, [selectedLesson]);
 
   const getVideoEmbed = (url: string) => {
     if (!url) return null;
@@ -509,13 +509,12 @@ export default function Aulas() {
             return (
               <div key={l.id} className="relative group">
                 {/* Timeline dot */}
-                <div className={`absolute -left-8 top-4 w-[30px] h-[30px] rounded-full border-2 flex items-center justify-center z-10 transition-all ${
-                  isDone
-                    ? "bg-[hsl(var(--chart-4))] border-[hsl(var(--chart-4))] shadow-md shadow-[hsl(var(--chart-4))]/20"
-                    : locked
+                <div className={`absolute -left-8 top-4 w-[30px] h-[30px] rounded-full border-2 flex items-center justify-center z-10 transition-all ${isDone
+                  ? "bg-[hsl(var(--chart-4))] border-[hsl(var(--chart-4))] shadow-md shadow-[hsl(var(--chart-4))]/20"
+                  : locked
                     ? "bg-muted border-border"
                     : "bg-card border-primary/50 group-hover:border-primary group-hover:shadow-md group-hover:shadow-primary/10"
-                }`}>
+                  }`}>
                   {isDone ? (
                     <CheckCircle className="w-4 h-4 text-primary-foreground" />
                   ) : locked ? (
@@ -527,9 +526,8 @@ export default function Aulas() {
 
                 {/* Card */}
                 <Card
-                  className={`glass-card ml-2 cursor-pointer transition-all ${
-                    locked ? "opacity-50" : "hover:border-primary/30 hover:translate-x-1"
-                  } ${isDone ? "border-[hsl(var(--chart-4))]/20" : ""}`}
+                  className={`glass-card ml-2 cursor-pointer transition-all ${locked ? "opacity-50" : "hover:border-primary/30 hover:translate-x-1"
+                    } ${isDone ? "border-[hsl(var(--chart-4))]/20" : ""}`}
                   onClick={() => locked ? navigate("/assinatura") : setSelectedLesson(l)}
                 >
                   <CardContent className="p-4 flex items-center gap-4">

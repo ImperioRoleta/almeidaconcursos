@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Bell, ChevronRight, X, Check, Trash2 } from "lucide-react";
@@ -25,23 +25,7 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    fetchNotifications();
-    generateSmartNotifications();
-
-    // Realtime subscription
-    const channel = supabase
-      .channel("notifications")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, (payload) => {
-        setNotifications(prev => [payload.new as Notification, ...prev]);
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [user]);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from("notifications")
@@ -50,9 +34,9 @@ export function NotificationBell() {
       .order("created_at", { ascending: false })
       .limit(20);
     setNotifications(data ?? []);
-  };
+  }, [user]);
 
-  const generateSmartNotifications = async () => {
+  const generateSmartNotifications = useCallback(async () => {
     if (!user) return;
 
     // Check review queue
@@ -118,7 +102,23 @@ export function NotificationBell() {
 
     // Refresh after generating
     fetchNotifications();
-  };
+  }, [user, fetchNotifications]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchNotifications();
+    generateSmartNotifications();
+
+    // Realtime subscription
+    const channel = supabase
+      .channel("notifications")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, (payload) => {
+        setNotifications(prev => [payload.new as Notification, ...prev]);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user, fetchNotifications, generateSmartNotifications]);
 
   const markAsRead = async (id: string) => {
     await supabase.from("notifications").update({ read: true }).eq("id", id);

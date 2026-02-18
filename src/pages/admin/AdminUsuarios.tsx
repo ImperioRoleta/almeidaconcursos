@@ -1,17 +1,19 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Users, Shield, Search, Ban, CheckCircle, Crown, User, Gift, Clock, ShieldCheck, ShieldOff, AlertTriangle, RotateCcw } from "lucide-react";
+import { Users, Shield, Search, Ban, CheckCircle, Crown, User, Gift, Clock, ShieldCheck, ShieldOff, AlertTriangle, RotateCcw, TrendingUp, BookOpen, Target, PenLine, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 
 type MergedUser = {
   id: string;
@@ -41,6 +43,58 @@ export default function AdminUsuarios() {
   const [grantDays, setGrantDays] = useState("30");
   const [trialDays, setTrialDays] = useState("7");
   const [processing, setProcessing] = useState(false);
+
+  // Performance View State
+  const [showPerformance, setShowPerformance] = useState<{ userId: string; name: string } | null>(null);
+  const [userStats, setUserStats] = useState<any | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+
+  const fetchUserStats = async (userId: string) => {
+    setLoadingStats(true);
+    setUserStats(null);
+    try {
+      const [progressRes, lessonsRes, essayRes, simRes, answersRes, sessionsRes] = await Promise.all([
+        supabase.from("user_progress").select("lesson_id").eq("user_id", userId).eq("completed", true),
+        supabase.from("lessons").select("id", { count: "exact", head: true }),
+        supabase.from("essays").select("id, title, score, created_at").eq("user_id", userId).order("created_at", { ascending: false }),
+        supabase.from("simulation_results").select("*, simulation:simulations(title)").eq("user_id", userId).order("created_at", { ascending: false }),
+        supabase.from("user_answers").select("is_correct").eq("user_id", userId),
+        supabase.from("study_sessions").select("duration_seconds").eq("user_id", userId),
+      ]);
+
+      const completedCount = progressRes.data?.length || 0;
+      const totalLessons = lessonsRes.count || 0;
+      const essays = essayRes.data || [];
+      const simulations = simRes.data?.map((r: any) => ({ ...r, title: r.simulation?.title })) || [];
+
+      const answers = answersRes.data || [];
+      const correctAnswers = answers.filter((a: any) => a.is_correct).length;
+      const avgAccuracy = answers.length > 0 ? Math.round((correctAnswers / answers.length) * 100) : 0;
+
+      const totalSeconds = (sessionsRes.data || []).reduce((acc: number, curr: any) => acc + (curr.duration_seconds || 0), 0);
+      const studyHours = totalSeconds / 3600;
+
+      setUserStats({
+        completedLessons: completedCount,
+        totalLessons,
+        essays,
+        essaysCount: essays.length,
+        simulations,
+        avgAnswerAccuracy: avgAccuracy,
+        studyHours,
+      });
+    } catch (error) {
+      console.error("Error fetching user stats:", error);
+      toast.error("Erro ao carregar estatísticas.");
+    }
+    setLoadingStats(false);
+  };
+
+  useEffect(() => {
+    if (showPerformance) {
+      fetchUserStats(showPerformance.userId);
+    }
+  }, [showPerformance]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -186,7 +240,11 @@ export default function AdminUsuarios() {
   const toggleSelectUser = (userId: string) => {
     setSelectedUsers(prev => {
       const next = new Set(prev);
-      next.has(userId) ? next.delete(userId) : next.add(userId);
+      if (next.has(userId)) {
+        next.delete(userId);
+      } else {
+        next.add(userId);
+      }
       return next;
     });
   };
@@ -317,6 +375,16 @@ export default function AdminUsuarios() {
                       onClick={() => setShowAdminConfirm({ userId: u.user_id, name: u.name || "Sem nome", isAdmin: !!isAdmin })}
                     >
                       {isAdmin ? <><ShieldOff className="w-3 h-3" /> Remover Admin</> : <><ShieldCheck className="w-3 h-3" /> Dar Admin</>}
+                    </Button>
+
+                    {/* View Performance */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1 h-7 text-xs border-primary/30 text-primary"
+                      onClick={() => setShowPerformance({ userId: u.user_id, name: u.name || "Sem nome" })}
+                    >
+                      <TrendingUp className="w-3 h-3" /> Desempenho
                     </Button>
 
                     {/* Reset Progress */}
@@ -493,6 +561,122 @@ export default function AdminUsuarios() {
               {processing ? "Processando..." : `Conceder Premium Teste para ${selectedUsers.size} usuário(s)`}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Performance View Dialog */}
+      <Dialog open={!!showPerformance} onOpenChange={() => setShowPerformance(null)}>
+        <DialogContent className="bg-card border-border max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" /> Desempenho do Aluno
+            </DialogTitle>
+            <DialogDescription>
+              Análise detalhada de {showPerformance?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingStats ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : !userStats ? (
+            <p className="text-center text-muted-foreground py-8">Dados não disponíveis.</p>
+          ) : (
+            <div className="space-y-6 mt-4">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Card className="glass-card bg-primary/5 border-primary/20">
+                  <CardContent className="p-4 text-center">
+                    <BookOpen className="w-5 h-5 text-primary mx-auto mb-2" />
+                    <p className="text-2xl font-bold font-mono">{userStats.completedLessons}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase">Aulas Concluídas</p>
+                  </CardContent>
+                </Card>
+                <Card className="glass-card bg-accent/5 border-accent/20">
+                  <CardContent className="p-4 text-center">
+                    <Target className="w-5 h-5 text-accent mx-auto mb-2" />
+                    <p className="text-2xl font-bold font-mono">{userStats.avgAnswerAccuracy}%</p>
+                    <p className="text-[10px] text-muted-foreground uppercase">Precisão Geral</p>
+                  </CardContent>
+                </Card>
+                <Card className="glass-card bg-[hsl(280,70%,55%)]/5 border-[hsl(280,70%,55%)]/20">
+                  <CardContent className="p-4 text-center">
+                    <PenLine className="w-5 h-5 text-[hsl(280,70%,55%)] mx-auto mb-2" />
+                    <p className="text-2xl font-bold font-mono">{userStats.essaysCount}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase">Redações</p>
+                  </CardContent>
+                </Card>
+                <Card className="glass-card bg-[hsl(25,95%,53%)]/5 border-[hsl(25,95%,53%)]/20">
+                  <CardContent className="p-4 text-center">
+                    <Clock className="w-5 h-5 text-[hsl(25,95%,53%)] mx-auto mb-2" />
+                    <p className="text-2xl font-bold font-mono">{userStats.studyHours.toFixed(1)}h</p>
+                    <p className="text-[10px] text-muted-foreground uppercase">Tempo de Estudo</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Progresso do Curso</span>
+                  <span className="font-semibold">{Math.round((userStats.completedLessons / Math.max(userStats.totalLessons, 1)) * 100)}%</span>
+                </div>
+                <Progress value={(userStats.completedLessons / Math.max(userStats.totalLessons, 1)) * 100} className="h-3" />
+                <p className="text-xs text-muted-foreground text-right">{userStats.totalLessons} aulas totais</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Essays */}
+                <Card className="glass-card">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2"><PenLine className="w-4 h-4 text-primary" /> Redações Recentes</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 space-y-3">
+                    {userStats.essays.length === 0 ? (
+                      <p className="text-sm text-muted-foreground italic">Nenhuma redação enviada.</p>
+                    ) : (
+                      userStats.essays.slice(0, 5).map((e: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0">
+                          <span className="truncate max-w-[150px]">{e.title}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground">{new Date(e.created_at).toLocaleDateString()}</span>
+                            <Badge variant={e.score >= 800 ? "default" : "secondary"} className="h-5 text-[10px]">
+                              {e.score || "Aguardando"}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Simulations */}
+                <Card className="glass-card">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2"><Shield className="w-4 h-4 text-accent" /> Últimos Simulados</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 space-y-3">
+                    {userStats.simulations.length === 0 ? (
+                      <p className="text-sm text-muted-foreground italic">Nenhum simulado realizado.</p>
+                    ) : (
+                      userStats.simulations.slice(0, 5).map((s: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0">
+                          <span className="truncate max-w-[150px]">{s.title || "Simulado"}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground">{new Date(s.created_at).toLocaleDateString()}</span>
+                            <span className={`font-mono font-bold ${s.score >= 70 ? "text-green-500" : "text-[hsl(var(--chart-4))]"}`}>
+                              {s.score}%
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

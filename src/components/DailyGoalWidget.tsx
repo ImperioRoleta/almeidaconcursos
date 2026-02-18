@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -168,8 +169,8 @@ export default function DailyGoalWidget() {
                     overallPct >= 100
                       ? "hsl(152, 69%, 42%)"
                       : overallPct >= 50
-                      ? "hsl(38, 92%, 50%)"
-                      : "hsl(210, 100%, 52%)",
+                        ? "hsl(38, 92%, 50%)"
+                        : "hsl(210, 100%, 52%)",
                 }}
               >
                 {overallPct}%

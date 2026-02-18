@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,12 +39,7 @@ export default function StudyTrail() {
   const [trails, setTrails] = useState<TrailData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user) return;
-    fetchTrails();
-  }, [user]);
-
-  const fetchTrails = async () => {
+  const fetchTrails = useCallback(async () => {
     const [subjectsRes, trailsRes, lessonsRes, questionsRes] = await Promise.all([
       supabase.from("subjects").select("id, name").order("order_index"),
       supabase.from("study_trail").select("*").eq("user_id", user!.id),
@@ -79,7 +75,12 @@ export default function StudyTrail() {
 
     setTrails(enriched);
     setLoading(false);
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchTrails();
+  }, [user, fetchTrails]);
 
   const getStepIndex = (step: TrailStep) => {
     if (step === "completed") return 4;

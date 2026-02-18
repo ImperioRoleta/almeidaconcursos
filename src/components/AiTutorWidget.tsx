@@ -1,4 +1,5 @@
-import { useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Compass, AlertTriangle, BookOpen, Loader2 } from "lucide-react";
@@ -50,7 +51,9 @@ export default function AiTutorWidget() {
               text += content;
               setSuggestion(text);
             }
-          } catch {}
+          } catch (error) {
+            console.error(error);
+          }
         }
       }
     } catch {

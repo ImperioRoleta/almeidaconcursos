@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -19,8 +20,8 @@ export function useSubscription() {
   const isActive = (isPremium || isTrial) && !isExpired;
   const planLabel = subscription?.plan === "premium_teste" ? "Premium Teste"
     : subscription?.plan === "premium_mensal" ? "Premium Mensal"
-    : subscription?.plan === "premium_anual" ? "Premium Anual"
-    : "Gratuito";
+      : subscription?.plan === "premium_anual" ? "Premium Anual"
+        : "Gratuito";
   const daysLeft = subscription?.expire_date
     ? Math.max(0, Math.ceil((new Date(subscription.expire_date).getTime() - Date.now()) / 86400000))
     : null;

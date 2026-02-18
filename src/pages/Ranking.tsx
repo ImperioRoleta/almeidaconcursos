@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -153,18 +154,16 @@ export default function Ranking() {
         <div className="flex flex-wrap gap-2">
           {sortOptions.map(opt => (
             <button key={opt.key} onClick={() => setSortBy(opt.key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                sortBy === opt.key ? "bg-primary/10 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              }`}>
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sortBy === opt.key ? "bg-primary/10 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                }`}>
               <opt.icon className="w-3 h-3" /> {opt.label}
             </button>
           ))}
           <div className="w-px bg-border mx-1" />
           {(["all", "week"] as const).map(t => (
             <button key={t} onClick={() => setTimeFilter(t)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                timeFilter === t ? "bg-accent/10 text-accent border border-accent/30" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              }`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${timeFilter === t ? "bg-accent/10 text-accent border border-accent/30" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                }`}>
               {t === "all" ? "Geral" : "Esta Semana"}
             </button>
           ))}
@@ -172,16 +171,14 @@ export default function Ranking() {
 
         <div className="flex flex-wrap gap-1.5">
           <button onClick={() => setSelectedSubject(null)}
-            className={`px-2.5 py-1 rounded text-[10px] font-medium transition-all ${
-              !selectedSubject ? "bg-primary/10 text-primary border border-primary/30" : "text-muted-foreground hover:bg-muted/50"
-            }`}>
+            className={`px-2.5 py-1 rounded text-[10px] font-medium transition-all ${!selectedSubject ? "bg-primary/10 text-primary border border-primary/30" : "text-muted-foreground hover:bg-muted/50"
+              }`}>
             Todas
           </button>
           {subjects.map(s => (
             <button key={s.id} onClick={() => setSelectedSubject(s.id)}
-              className={`px-2.5 py-1 rounded text-[10px] font-medium transition-all ${
-                selectedSubject === s.id ? "bg-primary/10 text-primary border border-primary/30" : "text-muted-foreground hover:bg-muted/50"
-              }`}>
+              className={`px-2.5 py-1 rounded text-[10px] font-medium transition-all ${selectedSubject === s.id ? "bg-primary/10 text-primary border border-primary/30" : "text-muted-foreground hover:bg-muted/50"
+                }`}>
               {s.name.length > 15 ? s.name.slice(0, 15) + "…" : s.name}
             </button>
           ))}

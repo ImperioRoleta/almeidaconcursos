@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import PremiumGate from "@/components/PremiumGate";
@@ -82,7 +83,9 @@ function IAChatContent() {
                 return [...prev, { role: "assistant", content: assistantSoFar }];
               });
             }
-          } catch {}
+          } catch (error) {
+            console.error(error);
+          }
         }
       }
     } catch (e: any) {

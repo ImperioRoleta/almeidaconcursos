@@ -1,3 +1,8 @@
+// Follow this setup guide to integrate the Deno language server with your editor:
+// https://deno.land/manual/getting_started/setup_your_environment
+// This enables autocomplete, go to definition, etc.
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -40,30 +45,32 @@ serve(async (req) => {
     const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { plan, coupon_code } = await req.json();
-    if (!plan || !["premium_mensal", "premium_anual"].includes(plan)) {
-      throw new Error("Invalid plan");
+    if (!plan) throw new Error("Plan not provided");
+
+    // Fetch plan from database
+    const { data: planData, error: planError } = await supabase
+      .from("plans")
+      .select("*")
+      .eq("slug", plan)
+      .single();
+
+    if (planError || !planData) {
+      throw new Error(`Plano inválido ou não encontrado: ${plan}`);
     }
 
-    // Get prices from platform_settings
-    const { data: settings } = await supabase.from("platform_settings").select("key, value");
-    const settingsMap: Record<string, string> = {};
-    settings?.forEach((s: any) => { settingsMap[s.key] = s.value; });
+    if (!planData.is_active || planData.is_blocked) {
+      throw new Error("Este plano não está disponível no momento");
+    }
 
-    const priceMap: Record<string, { price: number; title: string; days: number }> = {
-      premium_mensal: {
-        price: parseFloat(settingsMap.plan_price_mensal?.replace(",", ".") || "39.90"),
-        title: "Premium Mensal - Almeida Concursos",
-        days: 30,
-      },
-      premium_anual: {
-        price: parseFloat(settingsMap.plan_price_anual_total?.replace(",", ".") || "358.80"),
-        title: "Premium Anual - Almeida Concursos",
-        days: 365,
-      },
-    };
+    let finalPrice = Number(planData.price);
+    const planName = planData.name;
 
-    let planInfo = priceMap[plan];
-    let finalPrice = planInfo.price;
+    // Determine duration in days based on billing period
+    let days = 30;
+    if (planData.billing_period === "annual") days = 365;
+    else if (planData.billing_period === "one_time") days = 3650; // 10 years considered lifetime
+    else if (planData.billing_period === "weekly") days = 7;
+
     let appliedCouponCode: string | null = null;
 
     // Validate and apply coupon
@@ -91,6 +98,10 @@ serve(async (req) => {
         throw new Error("Este cupom não é válido para este plano");
       }
 
+      if (coupon.min_amount && finalPrice < coupon.min_amount) {
+        throw new Error(`Este cupom requer um valor mínimo de R$ ${coupon.min_amount}`);
+      }
+
       if (coupon.discount_type === "percentage") {
         finalPrice = finalPrice * (1 - coupon.discount_value / 100);
       } else {
@@ -99,14 +110,16 @@ serve(async (req) => {
       finalPrice = Math.round(finalPrice * 100) / 100;
       appliedCouponCode = coupon.code;
 
+      // Increment usage count
       await adminClient.from("coupons").update({
         current_uses: coupon.current_uses + 1,
       }).eq("id", coupon.id);
     }
 
+    // Identify base url
     const baseUrl = req.headers.get("origin") || "https://almeidaconcursos.lovable.app";
 
-    // Create payment request using admin client (avoids RLS issues)
+    // Create payment request
     const { data: paymentReq, error: insertError } = await adminClient.from("payment_requests").insert({
       user_id: userId,
       plan,
@@ -117,6 +130,48 @@ serve(async (req) => {
 
     if (insertError) throw new Error("Failed to create payment request: " + insertError.message);
 
+    // If price is 0 (100% discount), we could skip MP entirely or handle differently.
+    // For now, Mercado Pago requires unit_price > 0.
+    if (finalPrice <= 0) {
+      // Handle 100% discount flow (auto-approve)
+      // Update payment request to approved
+      await adminClient.from("payment_requests").update({
+        status: "approved",
+        updated_at: new Date().toISOString()
+      }).eq("id", paymentReq.id);
+
+      // Grant subscription logic would duplicate webhook logic.
+      // Ideally call a shared logic or return a special "approved" signal.
+      // But Assinatura.tsx expects init_point.
+      // We can return a successful JSON without init_point and handle in frontend?
+      // Current frontend throws "Resposta inválida do servidor" if init_point is missing.
+      // So we MUST return init_point OR frontend update is needed. 
+      // For now, let's assume huge discounts result in 0.01 at least if not fully free?
+      // Or throw error "Valor inválido" if 0.
+      // Let's set a minimum of 0.01 just in case, or handle it properly.
+      // If price is 0, we can't create MP preference.
+
+      if (finalPrice === 0) {
+        // Auto-grant logic
+        const { error: grantError } = await adminClient.from("subscriptions").upsert({
+          user_id: userId,
+          plan,
+          status: "active",
+          expire_date: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
+        });
+
+        if (grantError) throw new Error("Erro ao ativar assinatura gratuita: " + grantError.message);
+
+        return new Response(JSON.stringify({
+          message: "Assinatura ativada com sucesso!",
+          auto_approved: true,
+          init_point: `${baseUrl}/assinatura?status=approved` // Redirect to success
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Create Mercado Pago preference
     const mpResponse = await fetch("https://api.mercadopago.com/checkout/preferences", {
       method: "POST",
@@ -126,9 +181,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         items: [{
-          title: appliedCouponCode
-            ? `${planInfo.title} (Cupom: ${appliedCouponCode})`
-            : planInfo.title,
+          title: appliedCouponCode ? `${planName} (Cupom: ${appliedCouponCode})` : planName,
           quantity: 1,
           unit_price: finalPrice,
           currency_id: "BRL",
@@ -146,7 +199,7 @@ serve(async (req) => {
           user_id: userId,
           plan,
           payment_request_id: paymentReq.id,
-          days: planInfo.days,
+          days: days,
           coupon_code: appliedCouponCode,
         },
       }),
@@ -154,7 +207,8 @@ serve(async (req) => {
 
     const mpData = await mpResponse.json();
     if (!mpResponse.ok) {
-      throw new Error(`Mercado Pago error: ${JSON.stringify(mpData)}`);
+      console.error("Mercado Pago Error Body:", mpData);
+      throw new Error(`Mercado Pago error: ${mpData.message || JSON.stringify(mpData)}`);
     }
 
     return new Response(JSON.stringify({

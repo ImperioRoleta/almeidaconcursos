@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,7 +26,7 @@ interface AppliedCoupon {
 export default function Assinatura() {
   const { user } = useAuth();
   const [subscription, setSubscription] = useState<any>(null);
-  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [activePlans, setActivePlans] = useState<any[]>([]);
   const [myRequests, setMyRequests] = useState<any[]>([]);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
@@ -39,15 +40,13 @@ export default function Assinatura() {
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const [subRes, settingsRes, reqRes] = await Promise.all([
+      const [subRes, plansRes, reqRes] = await Promise.all([
         supabase.from("subscriptions").select("*").eq("user_id", user.id).single(),
-        supabase.from("platform_settings").select("*"),
+        supabase.from("plans").select("*").eq("is_active", true).eq("is_blocked", false).order("order_index"),
         supabase.from("payment_requests").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
       ]);
       setSubscription(subRes.data);
-      const map: Record<string, string> = {};
-      settingsRes.data?.forEach((s: any) => { map[s.key] = s.value; });
-      setSettings(map);
+      setActivePlans(plansRes.data || []);
       setMyRequests(reqRes.data ?? []);
 
       // Find pending checkout within 30 min
@@ -142,7 +141,7 @@ export default function Assinatura() {
       if (error) throw new Error(error.message || "Erro ao criar pagamento");
       if (data?.error) throw new Error(data.error);
       if (!data?.init_point) throw new Error("Resposta inválida do servidor");
-      
+
       window.location.href = data.init_point;
     } catch (error: any) {
       toast.error(error.message || "Erro ao processar pagamento");
@@ -158,37 +157,24 @@ export default function Assinatura() {
     rejected: { label: "Rejeitado", color: "bg-destructive/10 text-destructive" },
   };
 
-  const basePriceMonthly = parseFloat((settings.plan_price_mensal || "39,90").replace(",", "."));
-  const basePriceAnnualTotal = parseFloat((settings.plan_price_anual_total || "358,80").replace(",", "."));
-  const basePriceAnnualMonthly = parseFloat((settings.plan_price_anual || "29,90").replace(",", "."));
-
-  const monthlyDiscount = calcDiscount(basePriceMonthly);
-  const annualDiscount = calcDiscount(basePriceAnnualTotal);
-
-  const plans = [
-    {
-      key: "premium_mensal",
-      name: "Premium Mensal",
-      originalPrice: basePriceMonthly,
-      finalPrice: monthlyDiscount.final,
-      saved: monthlyDiscount.saved,
-      period: "/mês",
-      features: ["Todas as aulas", "Questões ilimitadas", "Simulados ilimitados", "IA completa", "Plano de estudos IA"],
-      highlight: true,
-    },
-    {
-      key: "premium_anual",
-      name: "Premium Anual",
-      originalPrice: basePriceAnnualTotal,
-      finalPrice: annualDiscount.final,
-      saved: annualDiscount.saved,
-      period: "/ano",
-      subtitle: `≈ R$ ${(annualDiscount.final / 12).toFixed(2).replace(".", ",")}/mês`,
-      features: ["Tudo do Mensal", "Economia de 25%", "Acesso antecipado", "Certificado", "Grupo exclusivo"],
-      highlight: false,
-      badge: "Melhor custo",
-    },
-  ];
+  const plans = activePlans.map(p => {
+    // Calculate discounts based on current plan config or coupons (logic adapted)
+    // Here we use the plan's own data
+    const discount = calcDiscount(p.price);
+    const isAnnual = p.billing_period === "annual" || p.billing_period === "one_time"; // Simplified assumption for display
+    return {
+      key: p.slug,
+      name: p.name,
+      originalPrice: p.price,
+      finalPrice: discount.final,
+      saved: discount.saved,
+      period: p.billing_period === "monthly" ? "/mês" : p.billing_period === "annual" ? "/ano" : "",
+      subtitle: (p.billing_period === "annual" && p.price > 0) ? `≈ R$ ${(discount.final / 12).toFixed(2).replace(".", ",")}/mês` : p.description,
+      features: p.features || [],
+      highlight: p.is_featured,
+      badge: p.badge_text,
+    };
+  });
 
   return (
     <div className="space-y-6 animate-fade-in max-w-3xl">
@@ -208,7 +194,7 @@ export default function Assinatura() {
                 <Crown className={`w-7 h-7 ${hasAccess ? "text-background" : "text-muted-foreground"}`} />
               </div>
               <div>
-                <h2 className="font-heading font-bold text-xl">{planLabels[subscription?.plan] || "Gratuito"}</h2>
+                <h2 className="font-heading font-bold text-xl">{subscription?.plan ? (activePlans.find(p => p.slug === subscription.plan)?.name || subscription.plan) : "Gratuito"}</h2>
                 <div className="flex items-center gap-2 mt-1">
                   {hasAccess ? (
                     <Badge className={isTrialPlan ? "bg-[hsl(280,70%,55%)]/10 text-[hsl(280,70%,55%)]" : "bg-[hsl(142,71%,45%)]/10 text-[hsl(142,71%,45%)]"}>

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,7 +12,11 @@ type LastActivity = {
   icon: React.ElementType;
 };
 
-export default function ContinueButton() {
+interface ContinueButtonProps {
+  className?: string;
+}
+
+export default function ContinueButton({ className }: ContinueButtonProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -20,17 +25,6 @@ export default function ContinueButton() {
   useEffect(() => {
     if (!user) return;
     const detect = async () => {
-      // Check review queue first (highest priority)
-      const { count: reviewCount } = await supabase
-        .from("review_queue")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .lte("next_review_at", new Date().toISOString());
-
-      if (reviewCount && reviewCount > 0) {
-        setActivity({ label: `${reviewCount} revisões pendentes`, url: "/revisoes", icon: Brain });
-        return;
-      }
 
       // Check last study session subject
       const { data: lastSession } = await supabase
@@ -79,10 +73,10 @@ export default function ContinueButton() {
   if (["/aulas", "/questoes", "/revisoes", "/simulados", "/ia"].includes(location.pathname)) return null;
 
   return (
-    <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 md:hidden animate-fade-in-up">
+    <div className={className}>
       <Button
         onClick={() => navigate(activity.url)}
-        className="gradient-primary text-primary-foreground shadow-lg glow-primary rounded-full px-5 h-12 gap-2 text-sm font-heading font-semibold"
+        className="gradient-primary text-primary-foreground shadow-lg glow-primary rounded-full px-5 h-12 gap-2 text-sm font-heading font-semibold w-full md:w-auto"
       >
         <Play className="w-4 h-4" />
         {activity.label}

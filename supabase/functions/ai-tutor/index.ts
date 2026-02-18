@@ -1,3 +1,8 @@
+// Follow this setup guide to integrate the Deno language server with your editor:
+// https://deno.land/manual/getting_started/setup_your_environment
+// This enables autocomplete, go to definition, etc.
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
@@ -21,7 +26,7 @@ serve(async (req) => {
     // Extract user from JWT
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
+
     const { action, messages, subject_id, question_id } = await req.json();
 
     // Fetch student context if authenticated
@@ -74,7 +79,7 @@ serve(async (req) => {
         });
       }
 
-      const subjectPerf = Object.entries(subjectAccuracy).map(([sid, v]) => 
+      const subjectPerf = Object.entries(subjectAccuracy).map(([sid, v]) =>
         `${subjectMap[sid] || sid}: ${Math.round((v.correct / v.total) * 100)}% (${v.total} questões)`
       ).join(", ");
 

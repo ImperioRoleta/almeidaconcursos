@@ -76,11 +76,10 @@ export default function LandingPlans() {
         {plans.map((plan) => (
           <Card
             key={plan.id}
-            className={`relative overflow-hidden transition-all duration-300 ${
-              plan.is_featured
+            className={`relative overflow-hidden transition-all duration-300 ${plan.is_featured
                 ? "border-primary/50 bg-primary/5 shadow-xl shadow-primary/10 scale-[1.02]"
                 : "glass-card hover:border-border/80"
-            }`}
+              }`}
           >
             {plan.image_url && (
               <div className="h-36 overflow-hidden">
@@ -126,12 +125,11 @@ export default function LandingPlans() {
                 )}
               </div>
               <ul className="space-y-3">
-                {plan.features.map((f, j) => (
+                {(plan.features || []).map((f, j) => (
                   <li key={j} className="flex items-center gap-2 text-sm">
                     <CheckCircle
-                      className={`w-4 h-4 shrink-0 ${
-                        plan.is_featured ? "text-primary" : "text-muted-foreground"
-                      }`}
+                      className={`w-4 h-4 shrink-0 ${plan.is_featured ? "text-primary" : "text-muted-foreground"
+                        }`}
                     />
                     <span>{f}</span>
                   </li>
@@ -139,11 +137,10 @@ export default function LandingPlans() {
               </ul>
               <Link to="/cadastro" className="block">
                 <Button
-                  className={`w-full h-12 font-semibold ${
-                    plan.is_featured
+                  className={`w-full h-12 font-semibold ${plan.is_featured
                       ? "gradient-primary text-primary-foreground shadow-lg shadow-primary/20"
                       : ""
-                  }`}
+                    }`}
                   variant={plan.is_featured ? "default" : "outline"}
                 >
                   {plan.billing_period === "free" ? "Começar Grátis" : "Assinar Agora"}

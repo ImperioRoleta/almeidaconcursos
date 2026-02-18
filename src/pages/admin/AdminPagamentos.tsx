@@ -1,13 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
-  DollarSign, Save, CreditCard, RefreshCw, CheckCircle, XCircle, Clock, Zap,
+  DollarSign, CreditCard, RefreshCw, CheckCircle, XCircle, Clock, Zap,
   TrendingUp, TrendingDown, BarChart3, Users, ArrowUpRight, Calendar, Filter, Percent,
   Trash2, MoreHorizontal, MessageSquare, AlertTriangle, Eye,
 } from "lucide-react";
@@ -31,8 +30,6 @@ import {
 
 export default function AdminPagamentos() {
   const { user } = useAuth();
-  const [settings, setSettings] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
   const [allRequests, setAllRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<"7" | "30" | "90">("30");
@@ -45,13 +42,9 @@ export default function AdminPagamentos() {
 
   const loadData = async () => {
     setLoading(true);
-    const [settingsRes, allReqRes] = await Promise.all([
-      supabase.from("platform_settings").select("*"),
+    const [allReqRes] = await Promise.all([
       supabase.from("payment_requests").select("*").order("created_at", { ascending: false }).limit(500),
     ]);
-    const map: Record<string, string> = {};
-    settingsRes.data?.forEach((s: any) => { map[s.key] = s.value; });
-    setSettings(map);
 
     const allReqs = allReqRes.data ?? [];
     const userIds = [...new Set(allReqs.map(r => r.user_id))];
@@ -69,18 +62,6 @@ export default function AdminPagamentos() {
 
   useEffect(() => { loadData(); }, []);
 
-  const updateSetting = (key: string, value: string) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-  };
-
-  const saveSettings = async () => {
-    setSaving(true);
-    for (const [key, value] of Object.entries(settings)) {
-      await supabase.from("platform_settings").upsert({ key, value, updated_at: new Date().toISOString(), label: key, category: "payments" }, { onConflict: "key" });
-    }
-    toast.success("Configurações salvas!");
-    setSaving(false);
-  };
 
   const planLabels: Record<string, string> = { premium_mensal: "Premium Mensal", premium_anual: "Premium Anual", gratuito: "Gratuito" };
   const statusIcons: Record<string, any> = {
@@ -227,9 +208,6 @@ export default function AdminPagamentos() {
           <p className="text-muted-foreground text-sm">Mercado Pago integrado • Apenas pagamentos reais contam como receita</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={saveSettings} disabled={saving} className="gradient-primary text-primary-foreground">
-            <Save className="w-4 h-4 mr-2" /> {saving ? "Salvando..." : "Salvar Preços"}
-          </Button>
           <Button variant="outline" onClick={loadData}><RefreshCw className="w-4 h-4" /></Button>
         </div>
       </div>
@@ -400,28 +378,6 @@ export default function AdminPagamentos() {
         </CardContent>
       </Card>
 
-      {/* Prices config */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="font-heading text-lg flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-primary" /> Preços dos Planos
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="space-y-1">
-            <Label className="text-sm">Preço Mensal (R$)</Label>
-            <Input value={settings.plan_price_mensal || ""} onChange={e => updateSetting("plan_price_mensal", e.target.value)} placeholder="39,90" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-sm">Preço Anual/mês (R$)</Label>
-            <Input value={settings.plan_price_anual || ""} onChange={e => updateSetting("plan_price_anual", e.target.value)} placeholder="29,90" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-sm">Preço Anual Total (R$)</Label>
-            <Input value={settings.plan_price_anual_total || ""} onChange={e => updateSetting("plan_price_anual_total", e.target.value)} placeholder="358,80" />
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Transactions list */}
       <Card className="glass-card">

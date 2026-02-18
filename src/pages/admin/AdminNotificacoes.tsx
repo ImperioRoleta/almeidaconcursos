@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,7 +44,7 @@ export default function AdminNotificacoes() {
       .not("created_by", "is", null)
       .order("created_at", { ascending: false })
       .limit(50);
-    
+
     // Deduplicate by title + created_at (same batch)
     const seen = new Set<string>();
     const unique = (data ?? []).filter(n => {

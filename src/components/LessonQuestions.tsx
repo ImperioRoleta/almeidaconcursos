@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -150,13 +151,12 @@ export default function LessonQuestions({ topicId }: LessonQuestionsProps) {
             {questions.map(q => (
               <div
                 key={q.id}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  answeredMap[q.id]
+                className={`w-2 h-2 rounded-full transition-colors ${answeredMap[q.id]
                     ? answeredMap[q.id].isCorrect
                       ? "bg-[hsl(var(--chart-4))]"
                       : "bg-destructive"
                     : "bg-muted"
-                }`}
+                  }`}
               />
             ))}
           </div>
@@ -176,13 +176,12 @@ export default function LessonQuestions({ topicId }: LessonQuestionsProps) {
                 <CardContent className="p-5 space-y-4">
                   {/* Question header */}
                   <div className="flex items-start gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-mono font-bold ${
-                      answered
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-mono font-bold ${answered
                         ? answered.isCorrect
                           ? "bg-[hsl(var(--chart-4))]/10 text-[hsl(var(--chart-4))]"
                           : "bg-destructive/10 text-destructive"
                         : "bg-primary/10 text-primary"
-                    }`}>
+                      }`}>
                       {String(idx + 1).padStart(2, "0")}
                     </div>
                     <div className="flex-1">

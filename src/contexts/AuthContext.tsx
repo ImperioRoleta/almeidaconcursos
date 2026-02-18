@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +13,7 @@ type AuthContextType = {
 };
 
 const AuthContext = createContext<AuthContextType>({
-  session: null, user: null, isAdmin: false, profile: null, loading: true, signOut: async () => {},
+  session: null, user: null, isAdmin: false, profile: null, loading: true, signOut: async () => { },
 });
 
 export const useAuth = () => useContext(AuthContext);

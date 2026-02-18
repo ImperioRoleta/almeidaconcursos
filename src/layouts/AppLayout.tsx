@@ -47,8 +47,6 @@ export default function AppLayout() {
           </main>
           {/* Mobile bottom nav */}
           <MobileBottomNav />
-          {/* Continue button (mobile only) */}
-          <ContinueButton />
           <PendingCheckoutBanner />
         </div>
       </SidebarProvider>

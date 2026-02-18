@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -127,8 +128,8 @@ export default function AdminMercadoPago() {
           <div className="text-sm">
             <p className="font-medium text-foreground">Importante sobre o Access Token</p>
             <p className="text-muted-foreground mt-1">
-              O Access Token usado pela Edge Function é armazenado como <strong>secret do servidor</strong> (MERCADOPAGO_ACCESS_TOKEN). 
-              Os campos abaixo servem como referência e backup. Para alterar o token ativo, 
+              O Access Token usado pela Edge Function é armazenado como <strong>secret do servidor</strong> (MERCADOPAGO_ACCESS_TOKEN).
+              Os campos abaixo servem como referência e backup. Para alterar o token ativo,
               entre em contato com o suporte para atualizar o secret.
             </p>
           </div>

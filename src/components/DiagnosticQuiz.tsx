@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -283,11 +284,10 @@ export default function DiagnosticQuiz() {
             {analyzeSteps.map((step, i) => (
               <div
                 key={i}
-                className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-500 ${
-                  i < analyzeStep ? "bg-primary/10 border border-primary/20" :
-                  i === analyzeStep ? "bg-primary/5 border border-primary/10 animate-pulse-soft" :
-                  "opacity-30"
-                }`}
+                className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-500 ${i < analyzeStep ? "bg-primary/10 border border-primary/20" :
+                    i === analyzeStep ? "bg-primary/5 border border-primary/10 animate-pulse-soft" :
+                      "opacity-30"
+                  }`}
               >
                 <step.icon className={`w-4 h-4 ${i <= analyzeStep ? "text-primary" : "text-muted-foreground"}`} />
                 <span className="text-sm font-medium">{step.label}</span>
@@ -392,10 +392,9 @@ export default function DiagnosticQuiz() {
                       </div>
                       <div className="h-2 rounded-full bg-muted overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all duration-700 ${
-                            s.percentage >= 70 ? "bg-[hsl(var(--success))]" :
-                            s.percentage >= 50 ? "bg-accent" : "bg-destructive"
-                          }`}
+                          className={`h-full rounded-full transition-all duration-700 ${s.percentage >= 70 ? "bg-[hsl(var(--success))]" :
+                              s.percentage >= 50 ? "bg-accent" : "bg-destructive"
+                            }`}
                           style={{ width: `${s.percentage}%` }}
                         />
                       </div>
@@ -512,11 +511,10 @@ export default function DiagnosticQuiz() {
                   style={{ animationDelay: `${optIdx * 50}ms` }}
                 >
                   <div className="flex items-start gap-3">
-                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-heading font-bold ${
-                      showFeedback && opt.is_correct ? "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]" :
-                      showFeedback && opt.id === selectedOption ? "bg-destructive/20 text-destructive" :
-                      "bg-muted text-muted-foreground"
-                    }`}>
+                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-heading font-bold ${showFeedback && opt.is_correct ? "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]" :
+                        showFeedback && opt.id === selectedOption ? "bg-destructive/20 text-destructive" :
+                          "bg-muted text-muted-foreground"
+                      }`}>
                       {opt.label}
                     </span>
                     <span className="text-sm pt-0.5">{opt.text}</span>

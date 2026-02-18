@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -444,15 +445,14 @@ export default function Questoes() {
             <button
               key={qq.id}
               onClick={() => goToQuestion(idx)}
-              className={`w-7 h-7 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center justify-center ${
-                isCurrent
+              className={`w-7 h-7 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center justify-center ${isCurrent
                   ? "bg-primary text-primary-foreground ring-2 ring-primary/30 scale-110"
                   : a
-                  ? a.isCorrect
-                    ? "bg-[hsl(var(--chart-4))]/15 text-[hsl(var(--chart-4))] border border-[hsl(var(--chart-4))]/30"
-                    : "bg-destructive/15 text-destructive border border-destructive/30"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
+                    ? a.isCorrect
+                      ? "bg-[hsl(var(--chart-4))]/15 text-[hsl(var(--chart-4))] border border-[hsl(var(--chart-4))]/30"
+                      : "bg-destructive/15 text-destructive border border-destructive/30"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
             >
               {a ? (a.isCorrect ? "✓" : "✗") : idx + 1}
             </button>
@@ -465,24 +465,22 @@ export default function Questoes() {
         <CardContent className="p-6 sm:p-8 space-y-6">
           {/* Question header */}
           <div className="flex items-start gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 font-mono font-bold ${
-              alreadyAnswered
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 font-mono font-bold ${alreadyAnswered
                 ? alreadyAnswered.isCorrect
                   ? "bg-[hsl(var(--chart-4))]/10 text-[hsl(var(--chart-4))]"
                   : "bg-destructive/10 text-destructive"
                 : "bg-primary/10 text-primary"
-            }`}>
+              }`}>
               {String(currentIdx + 1).padStart(2, "0")}
             </div>
             <div className="flex-1">
               <p className="font-medium text-lg leading-relaxed">{q.statement}</p>
               <div className="flex items-center gap-2 mt-2">
                 {q.difficulty && (
-                  <Badge variant="outline" className={`text-xs py-0.5 ${
-                    q.difficulty === "easy" ? "border-[hsl(var(--chart-4))]/40 text-[hsl(var(--chart-4))]"
-                    : q.difficulty === "hard" ? "border-destructive/40 text-destructive"
-                    : "border-accent/40 text-accent"
-                  }`}>
+                  <Badge variant="outline" className={`text-xs py-0.5 ${q.difficulty === "easy" ? "border-[hsl(var(--chart-4))]/40 text-[hsl(var(--chart-4))]"
+                      : q.difficulty === "hard" ? "border-destructive/40 text-destructive"
+                        : "border-accent/40 text-accent"
+                    }`}>
                     {q.difficulty === "easy" ? "Fácil" : q.difficulty === "hard" ? "Difícil" : "Médio"}
                   </Badge>
                 )}
@@ -514,13 +512,12 @@ export default function Questoes() {
               return (
                 <div key={opt.id} className={classes} onClick={() => handleAnswer(opt.id)}>
                   <div className="flex items-center gap-4">
-                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center font-mono font-bold text-sm shrink-0 ${
-                      currentRevealed && opt.is_correct
+                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center font-mono font-bold text-sm shrink-0 ${currentRevealed && opt.is_correct
                         ? "bg-[hsl(var(--chart-4))]/10 text-[hsl(var(--chart-4))]"
                         : currentRevealed && opt.id === currentAnswer && !opt.is_correct
-                        ? "bg-destructive/10 text-destructive"
-                        : "bg-muted text-muted-foreground"
-                    }`}>
+                          ? "bg-destructive/10 text-destructive"
+                          : "bg-muted text-muted-foreground"
+                      }`}>
                       {opt.label}
                     </span>
                     <span className="flex-1 text-sm">{opt.text}</span>
