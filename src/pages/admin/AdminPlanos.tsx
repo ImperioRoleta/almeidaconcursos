@@ -141,12 +141,20 @@ export default function AdminPlanos() {
       color: editingPlan.color || null,
     };
 
+    console.log("Saving plan data:", data);
+
     const { error } = editingPlan.id
       ? await supabase.from("plans").update(data).eq("id", editingPlan.id)
       : await supabase.from("plans").insert(data);
 
-    if (error) toast.error("Erro: " + error.message);
-    else { toast.success(editingPlan.id ? "Plano atualizado!" : "Plano criado!"); setPlanDialog(false); await loadData(); }
+    if (error) {
+      console.error("Error saving plan:", error);
+      toast.error("Erro: " + error.message);
+    } else {
+      toast.success(editingPlan.id ? "Plano atualizado!" : "Plano criado!");
+      setPlanDialog(false);
+      await loadData();
+    }
     setSaving(false);
   };
 

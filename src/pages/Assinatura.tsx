@@ -97,17 +97,40 @@ export default function Assinatura() {
   const validateCoupon = async () => {
     if (!couponCode.trim()) return;
     setCouponLoading(true);
-    // Coupon will be validated server-side during checkout.
-    // Here we just store the code for sending to the server.
-    const code = couponCode.toUpperCase().trim();
-    setAppliedCoupon({
-      code,
-      discount_type: "percentage",
-      discount_value: 0,
-      description: `Cupom "${code}" será validado no checkout`,
-    });
-    toast.success(`Cupom "${code}" será aplicado no checkout`);
-    setCouponLoading(false);
+
+    try {
+      const code = couponCode.toUpperCase().trim();
+      const planSlug = activePlans.length > 0 ? activePlans[0].slug : undefined; // Start validation with first plan or generic
+
+      const { data, error } = await supabase.functions.invoke("check-coupon", {
+        body: { code, plan: planSlug }, // Send plan if needed for specific validation
+      });
+
+      if (error) throw new Error(error.message || "Erro ao validar cupom");
+
+      // Check if the response itself contains an error message (some edge functions return 200 with error prop)
+      // Our function returns 400 or 200 with valid: false, so invoke might throw or return data.
+      // If invoke throws on 400, 'error' catches it.
+      // If invoke returns 200 but valid: false:
+      if (data && !data.valid) {
+        throw new Error(data.message || "Cupom inválido");
+      }
+
+      setAppliedCoupon({
+        code: data.code,
+        discount_type: data.discount_type,
+        discount_value: data.discount_value,
+        description: data.description,
+      });
+
+      toast.success(data.message || "Cupom aplicado com sucesso!");
+    } catch (err: any) {
+      console.error("Coupon validation error:", err);
+      toast.error(err.message || "Cupom inválido ou expirado");
+      setAppliedCoupon(null);
+    } finally {
+      setCouponLoading(false);
+    }
   };
 
   const removeCoupon = () => {
