@@ -1,8 +1,7 @@
-
 import { useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import { Button } from "@/components/ui/button";
-import { Share2, Loader2, Trophy, Target, Clock, BookOpen } from "lucide-react";
+import { Share2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface SharePerformanceProps {
@@ -24,147 +23,312 @@ export function SharePerformance({ user, profile, stats, level, xp }: SharePerfo
     const cardRef = useRef<HTMLDivElement>(null);
     const [generating, setGenerating] = useState(false);
 
-    const generateImage = async (action: "share" | "download") => {
+    const generateImage = async () => {
         if (!cardRef.current) return;
         setGenerating(true);
-
         try {
-            // Wait for images to load (just in case)
-            await new Promise(resolve => setTimeout(resolve, 500));
-
+            await new Promise(resolve => setTimeout(resolve, 600));
             const canvas = await html2canvas(cardRef.current, {
-                backgroundColor: "#09090b", // zinc-950
-                scale: 2, // High resolution
+                backgroundColor: "#000000",
+                scale: 2,
                 useCORS: true,
                 allowTaint: true,
+                logging: false,
             });
 
             canvas.toBlob(async (blob) => {
-                if (!blob) {
-                    toast.error("Erro ao gerar imagem.");
-                    setGenerating(false);
-                    return;
-                }
+                if (!blob) { toast.error("Erro ao gerar imagem."); setGenerating(false); return; }
 
-                if (action === "download") {
+                const file = new File([blob], "elite-pmba-conquista.png", { type: "image/png" });
+
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({
+                            title: "Meu Desempenho Elite PMBA",
+                            text: `🎖️ ${stats.accuracy}% de precisão, ${xp.total} XP — Elite PMBA me preparando pro concurso!`,
+                            files: [file],
+                        });
+                        toast.success("Compartilhado com sucesso!");
+                    } catch (e) {
+                        // user cancelled — do nothing
+                    }
+                } else {
+                    // Desktop fallback: download
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `elite-pmba-stats-${user.id.slice(0, 4)}.png`;
+                    a.download = "elite-pmba-conquista.png";
                     a.click();
                     URL.revokeObjectURL(url);
-                    toast.success("Imagem salva!");
-                } else if (action === "share") {
-                    if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], "stats.png", { type: "image/png" })] })) {
-                        try {
-                            const file = new File([blob], "elite-pmba-stats.png", { type: "image/png" });
-                            await navigator.share({
-                                title: "Meu Desempenho - Elite PMBA",
-                                text: `Estou no nível ${level?.name || "Recruta"} com ${stats.accuracy}% de acertos! Venha estudar comigo.`,
-                                files: [file],
-                            });
-                            toast.success("Compartilhado com sucesso!");
-                        } catch (err) {
-                            console.error("Share error:", err);
-                            // Fallback to download if share fails or is cancelled
-                        }
-                    } else {
-                        // Fallback for desktop or unsupported browsers
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `elite-pmba-stats.png`;
-                        a.click();
-                        toast.info("Compartilhamento não suportado neste dispositivo. Imagem baixada!");
-                    }
+                    toast.success("Imagem baixada! Compartilhe nas redes sociais.");
                 }
+                setGenerating(false);
             }, "image/png", 1.0);
-
         } catch (err) {
-            console.error("Error generating image:", err);
+            console.error(err);
             toast.error("Erro ao gerar imagem.");
-        } finally {
             setGenerating(false);
         }
     };
 
+    const initials = (profile?.name || "Guerreiro").split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+
     return (
         <>
-            <Button onClick={() => generateImage("share")} disabled={generating} className="gap-2 gradient-gold text-accent-foreground font-bold shadow-lg shadow-gold/20 hover:shadow-gold/40 transition-all">
-                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
-                Compartilhar Conquista
+            <Button
+                onClick={generateImage}
+                disabled={generating}
+                className="gap-2 bg-gradient-to-r from-yellow-500 via-orange-500 to-yellow-600 text-black font-black text-sm shadow-xl shadow-yellow-500/30 hover:shadow-yellow-500/50 hover:scale-105 transition-all duration-300 px-6 h-11 rounded-2xl"
+            >
+                {generating
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</>
+                    : <><Share2 className="w-4 h-4" /> Compartilhar Conquista</>
+                }
             </Button>
 
-            {/* Hidden Card for Generation */}
-            <div style={{ position: "absolute", top: "-9999px", left: "-9999px" }}>
+            {/* ===== OFF-SCREEN CARD FOR html2canvas ===== */}
+            <div style={{ position: "fixed", top: "-9999px", left: "-9999px", zIndex: -1, pointerEvents: "none" }}>
                 <div
                     ref={cardRef}
-                    className="w-[1080px] h-[1920px] bg-zinc-950 text-white relative overflow-hidden flex flex-col items-center justify-between p-16 font-sans"
+                    style={{
+                        width: "1080px",
+                        height: "1920px",
+                        background: "linear-gradient(135deg, #0a0a0a 0%, #0f0c1e 40%, #0a0a0a 100%)",
+                        position: "relative",
+                        overflow: "hidden",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        fontFamily: "'Arial Black', 'Arial', sans-serif",
+                    }}
                 >
-                    {/* Background Effects */}
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(250,204,21,0.15),transparent_50%)]" />
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_100%,rgba(59,130,246,0.15),transparent_50%)]" />
-                    <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid-pattern.svg')] opacity-5" />
+                    {/* === BACKGROUND GLOWS === */}
+                    <div style={{
+                        position: "absolute", top: "-200px", left: "50%", transform: "translateX(-50%)",
+                        width: "900px", height: "900px", borderRadius: "50%",
+                        background: "radial-gradient(circle, rgba(234,179,8,0.18) 0%, transparent 70%)",
+                        pointerEvents: "none",
+                    }} />
+                    <div style={{
+                        position: "absolute", bottom: "0px", left: "50%", transform: "translateX(-50%)",
+                        width: "800px", height: "800px", borderRadius: "50%",
+                        background: "radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)",
+                        pointerEvents: "none",
+                    }} />
 
-                    {/* Header */}
-                    <div className="text-center space-y-4 z-10 mt-10">
-                        <div className="inline-flex items-center justify-center p-4 rounded-3xl bg-zinc-900/80 border border-zinc-800 shadow-2xl mb-6">
-                            <span className="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-600">
-                                ELITE PMBA
+                    {/* === TOP DECORATIVE STRIPE === */}
+                    <div style={{
+                        position: "absolute", top: 0, left: 0, right: 0, height: "8px",
+                        background: "linear-gradient(90deg, #ca8a04, #eab308, #fde047, #eab308, #ca8a04)",
+                    }} />
+
+                    {/* === DIAGONAL ACCENT LINES === */}
+                    <div style={{
+                        position: "absolute", top: 0, right: 0, width: "400px", height: "400px",
+                        background: "linear-gradient(135deg, rgba(234,179,8,0.08) 0%, transparent 60%)",
+                        clipPath: "polygon(100% 0, 0 0, 100% 100%)",
+                        pointerEvents: "none",
+                    }} />
+                    <div style={{
+                        position: "absolute", bottom: 0, left: 0, width: "400px", height: "400px",
+                        background: "linear-gradient(315deg, rgba(59,130,246,0.08) 0%, transparent 60%)",
+                        clipPath: "polygon(0 100%, 0 0, 100% 100%)",
+                        pointerEvents: "none",
+                    }} />
+
+                    {/* === LOGO / BRAND TOP === */}
+                    <div style={{
+                        marginTop: "80px", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px",
+                    }}>
+                        <div style={{
+                            background: "linear-gradient(135deg, rgba(234,179,8,0.15), rgba(234,179,8,0.05))",
+                            border: "1px solid rgba(234,179,8,0.3)",
+                            borderRadius: "20px",
+                            padding: "16px 40px",
+                            backdropFilter: "blur(20px)",
+                        }}>
+                            <span style={{
+                                fontSize: "36px", fontWeight: "900", letterSpacing: "8px",
+                                background: "linear-gradient(90deg, #ca8a04, #eab308, #fde047)",
+                                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                                textTransform: "uppercase",
+                            }}>
+                                🎖 ELITE PMBA
                             </span>
                         </div>
-                        <p className="text-zinc-400 text-3xl font-medium tracking-wide uppercase">Relatório de Combate</p>
+                        <span style={{
+                            fontSize: "22px", color: "rgba(253,224,71,0.6)", letterSpacing: "6px",
+                            textTransform: "uppercase", fontWeight: "700",
+                        }}>
+                            RELATÓRIO DE COMBATE
+                        </span>
                     </div>
 
-                    {/* User Profile */}
-                    <div className="flex flex-col items-center z-10">
-                        <div className="relative mb-8">
-                            <div className="absolute inset-0 bg-yellow-500/20 blur-3xl rounded-full" />
-                            <img
-                                src={profile?.avatar_url || "https://github.com/shadcn.png"}
-                                className="w-64 h-64 rounded-full border-8 border-zinc-900 shadow-2xl object-cover relative z-10"
-                                alt="Avatar"
-                                crossOrigin="anonymous"
-                            />
-                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-yellow-500 text-black font-black px-8 py-2 rounded-full text-2xl shadow-xl z-20 whitespace-nowrap uppercase tracking-widest">
-                                {level?.name || "Novato"}
+                    {/* === AVATAR SECTION === */}
+                    <div style={{ marginTop: "80px", display: "flex", flexDirection: "column", alignItems: "center", gap: "0px" }}>
+                        {/* Outer ring glow */}
+                        <div style={{
+                            width: "280px", height: "280px", borderRadius: "50%",
+                            background: "conic-gradient(from 0deg, #ca8a04, #eab308, #fde047, #eab308, #ca8a04)",
+                            padding: "5px",
+                            boxShadow: "0 0 60px rgba(234,179,8,0.6), 0 0 120px rgba(234,179,8,0.2)",
+                            position: "relative",
+                        }}>
+                            <div style={{ width: "100%", height: "100%", borderRadius: "50%", background: "#0a0a0a", padding: "5px" }}>
+                                {profile?.avatar_url ? (
+                                    <img
+                                        src={profile.avatar_url}
+                                        style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+                                        crossOrigin="anonymous"
+                                        alt="avatar"
+                                    />
+                                ) : (
+                                    <div style={{
+                                        width: "100%", height: "100%", borderRadius: "50%",
+                                        background: "linear-gradient(135deg, #1e40af, #7c3aed)",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                        fontSize: "80px", fontWeight: "900", color: "white",
+                                    }}>
+                                        {initials}
+                                    </div>
+                                )}
                             </div>
                         </div>
-                        <h2 className="text-6xl font-black mt-12 text-center text-white drop-shadow-lg max-w-2xl leading-tight">
-                            {profile?.name || "Guerreiro"}
-                        </h2>
-                    </div>
 
-                    {/* Stats Grid */}
-                    <div className="w-full grid grid-cols-2 gap-8 z-10 px-8">
-                        <div className="bg-zinc-900/50 border border-zinc-800 p-10 rounded-[3rem] flex flex-col items-center justify-center gap-4">
-                            <Target className="w-16 h-16 text-yellow-500" />
-                            <span className="text-8xl font-black font-mono tracking-tighter text-white">{stats.accuracy}%</span>
-                            <span className="text-2xl text-zinc-500 font-bold uppercase tracking-widest">Precisão</span>
-                        </div>
-                        <div className="bg-zinc-900/50 border border-zinc-800 p-10 rounded-[3rem] flex flex-col items-center justify-center gap-4">
-                            <Clock className="w-16 h-16 text-blue-500" />
-                            <span className="text-8xl font-black font-mono tracking-tighter text-white">{stats.hours}h</span>
-                            <span className="text-2xl text-zinc-500 font-bold uppercase tracking-widest">Treinamento</span>
-                        </div>
-                        <div className="bg-zinc-900/50 border border-zinc-800 p-10 rounded-[3rem] flex flex-col items-center justify-center gap-4">
-                            <Trophy className="w-16 h-16 text-purple-500" />
-                            <span className="text-8xl font-black font-mono tracking-tighter text-white">{xp.total}</span>
-                            <span className="text-2xl text-zinc-500 font-bold uppercase tracking-widest">XP Total</span>
-                        </div>
-                        <div className="bg-zinc-900/50 border border-zinc-800 p-10 rounded-[3rem] flex flex-col items-center justify-center gap-4">
-                            <BookOpen className="w-16 h-16 text-green-500" />
-                            <span className="text-8xl font-black font-mono tracking-tighter text-white">{stats.questions}</span>
-                            <span className="text-2xl text-zinc-500 font-bold uppercase tracking-widest">Questões</span>
+                        {/* Rank badge below avatar */}
+                        <div style={{
+                            marginTop: "24px",
+                            background: "linear-gradient(135deg, #ca8a04, #eab308)",
+                            borderRadius: "100px",
+                            padding: "10px 40px",
+                            boxShadow: "0 8px 32px rgba(234,179,8,0.5)",
+                        }}>
+                            <span style={{
+                                color: "#000", fontWeight: "900", fontSize: "24px", letterSpacing: "4px",
+                                textTransform: "uppercase",
+                            }}>
+                                {level?.name || "RECRUTA"}
+                            </span>
                         </div>
                     </div>
 
-                    {/* Footer */}
-                    <div className="text-center z-10 mb-10 opacity-60">
-                        <p className="text-2xl font-bold text-zinc-500">Junte-se à Tropa</p>
-                        <p className="text-xl text-zinc-600 mt-2">elitepmba.com.br</p>
+                    {/* === USER NAME === */}
+                    <div style={{ marginTop: "40px", textAlign: "center", padding: "0 80px" }}>
+                        <h1 style={{
+                            fontSize: "72px",
+                            fontWeight: "900",
+                            color: "white",
+                            letterSpacing: "-2px",
+                            lineHeight: "1",
+                            textShadow: "0 4px 30px rgba(234,179,8,0.3)",
+                            margin: 0,
+                        }}>
+                            {profile?.name || "GUERREIRO"}
+                        </h1>
+                        <p style={{
+                            color: "rgba(255,255,255,0.3)", fontSize: "24px", marginTop: "12px",
+                            letterSpacing: "4px", textTransform: "uppercase", fontWeight: "700",
+                        }}>
+                            em treinamento para SD PMBA
+                        </p>
                     </div>
 
+                    {/* === DIVIDER === */}
+                    <div style={{
+                        marginTop: "60px", width: "880px", height: "1px",
+                        background: "linear-gradient(90deg, transparent, rgba(234,179,8,0.5), transparent)",
+                    }} />
+
+                    {/* === XP HIGHLIGHT === */}
+                    <div style={{
+                        marginTop: "48px", textAlign: "center",
+                        background: "linear-gradient(135deg, rgba(234,179,8,0.1), rgba(234,179,8,0.03))",
+                        border: "1px solid rgba(234,179,8,0.2)",
+                        borderRadius: "32px",
+                        padding: "32px 80px",
+                        width: "880px",
+                    }}>
+                        <div style={{
+                            fontSize: "120px", fontWeight: "900", lineHeight: "1",
+                            background: "linear-gradient(180deg, #fde047, #ca8a04)",
+                            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                            filter: "drop-shadow(0 0 30px rgba(234,179,8,0.4))",
+                        }}>
+                            {xp.total.toLocaleString("pt-BR")}
+                        </div>
+                        <div style={{ color: "rgba(253,224,71,0.6)", fontSize: "28px", letterSpacing: "8px", fontWeight: "700", marginTop: "8px" }}>
+                            XP ACUMULADO
+                        </div>
+                    </div>
+
+                    {/* === STATS ROW === */}
+                    <div style={{
+                        marginTop: "48px", display: "grid", gridTemplateColumns: "1fr 1fr",
+                        gap: "24px", width: "880px",
+                    }}>
+                        {[
+                            { label: "PRECISÃO", value: `${stats.accuracy}%`, icon: "🎯", color: "#f59e0b" },
+                            { label: "HORAS", value: `${stats.hours}h`, icon: "⏱️", color: "#3b82f6" },
+                            { label: "QUESTÕES", value: stats.questions.toLocaleString("pt-BR"), icon: "📝", color: "#8b5cf6" },
+                            { label: "SEQUÊNCIA", value: `${stats.streak}d`, icon: "🔥", color: "#ef4444" },
+                        ].map((s, i) => (
+                            <div key={i} style={{
+                                background: "rgba(255,255,255,0.03)",
+                                border: "1px solid rgba(255,255,255,0.08)",
+                                borderRadius: "28px",
+                                padding: "32px",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                gap: "12px",
+                                backdropFilter: "blur(10px)",
+                            }}>
+                                <div style={{ fontSize: "48px" }}>{s.icon}</div>
+                                <div style={{
+                                    fontSize: "64px", fontWeight: "900", lineHeight: "1",
+                                    color: s.color, textShadow: `0 0 30px ${s.color}66`,
+                                }}>
+                                    {s.value}
+                                </div>
+                                <div style={{
+                                    color: "rgba(255,255,255,0.35)", fontSize: "20px", letterSpacing: "5px",
+                                    fontWeight: "700", textTransform: "uppercase",
+                                }}>
+                                    {s.label}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* === BOTTOM CTA === */}
+                    <div style={{
+                        marginTop: "auto",
+                        marginBottom: "80px",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "32px 80px",
+                        borderTop: "1px solid rgba(234,179,8,0.15)",
+                        width: "1080px",
+                    }}>
+                        <p style={{ color: "rgba(255,255,255,0.25)", fontSize: "22px", fontWeight: "700", letterSpacing: "4px", margin: 0 }}>
+                            JUNTE-SE AO BATALHÃO
+                        </p>
+                        <p style={{
+                            fontSize: "32px", fontWeight: "900", letterSpacing: "2px", margin: 0,
+                            background: "linear-gradient(90deg, #eab308, #fde047)",
+                            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                        }}>
+                            elitepmba.com.br
+                        </p>
+                    </div>
+
+                    {/* === BOTTOM STRIPE === */}
+                    <div style={{
+                        position: "absolute", bottom: 0, left: 0, right: 0, height: "6px",
+                        background: "linear-gradient(90deg, #1e40af, #3b82f6, #1e40af)",
+                    }} />
                 </div>
             </div>
         </>
