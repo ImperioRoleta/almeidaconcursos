@@ -38,14 +38,19 @@ import {
   Package,
   PenLine,
   Settings,
+  BookX,
+  BarChart3,
+  Zap,
+  GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
 const studentItems = [
-  { title: "Diagnóstico", url: "/diagnostico", icon: Crosshair, premium: false },
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, premium: false },
+  { title: "Dashboards", url: "/dashboard", icon: LayoutDashboard, premium: false },
   { title: "Aulas", url: "/aulas", icon: BookOpen, premium: false },
+
   { title: "Redações", url: "/redacoes", icon: PenLine, premium: false },
   { title: "Questões", url: "/questoes", icon: HelpCircle, premium: false },
   { title: "Simulados", url: "/simulados", icon: FileText, premium: true },
@@ -53,9 +58,17 @@ const studentItems = [
   { title: "Plano de Estudos", url: "/plano", icon: CalendarDays, premium: true },
   { title: "Ranking", url: "/ranking", icon: Trophy, premium: false },
   { title: "Conquistas", url: "/conquistas", icon: Award, premium: false },
+  { title: "Caderno de Erros", url: "/caderno-erros", icon: BookX, premium: false },
+  { title: "Relatório", url: "/relatorio", icon: BarChart3, premium: false },
   { title: "IA Assistente", url: "/ia", icon: MessageSquare, premium: true },
   { title: "Assinatura", url: "/assinatura", icon: Crown, premium: false },
   { title: "Perfil", url: "/perfil", icon: User, premium: false },
+];
+
+const teacherItems = [
+  { title: "Painel Professor", url: "/teacher", icon: GraduationCap },
+  { title: "Fila de Correção", url: "/teacher/redacoes", icon: PenLine },
+  { title: "Meus Alunos", url: "/teacher/alunos", icon: Users },
 ];
 
 const adminItems = [
@@ -74,7 +87,7 @@ const adminItems = [
 ];
 
 export function AppSidebar() {
-  const { isAdmin, profile, signOut } = useAuth();
+  const { isAdmin, isTeacher, profile, signOut } = useAuth();
   const { isActive, planLabel, daysLeft } = useSubscription();
   const location = useLocation();
 
@@ -84,13 +97,12 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="" className="w-10 h-10 rounded-xl object-cover shrink-0 shadow-md" />
-          ) : (
-            <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-primary/20">
-              <Shield className="w-5 h-5 text-primary-foreground" />
-            </div>
-          )}
+          <Avatar className="w-10 h-10 rounded-xl shrink-0 shadow-md">
+            <AvatarImage src={profile?.avatar_url || "/avatar.png"} alt={profile?.name || "Usuário"} className="object-cover" />
+            <AvatarFallback className="bg-primary/10 text-primary">
+              <User className="w-5 h-5" />
+            </AvatarFallback>
+          </Avatar>
           <div className="min-w-0">
             <h2 className="font-heading font-bold text-sm tracking-tight truncate">{profile?.name || "Almeida Concursos"}</h2>
             <div className="flex items-center gap-1.5 mt-0.5">
@@ -128,6 +140,28 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {(isTeacher || isAdmin) && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60">
+              Professor
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {teacherItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+                      <NavLink to={item.url} end>
+                        <item.icon className="w-4 h-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {isAdmin && (
           <SidebarGroup>

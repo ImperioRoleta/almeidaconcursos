@@ -85,46 +85,69 @@ export default function DailyGoalWidget() {
 
   useEffect(() => {
     if (!user) return;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayISO = today.toISOString();
 
-    Promise.all([
-      supabase
-        .from("user_answers")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .gte("answered_at", todayISO),
-      supabase
-        .from("study_sessions")
-        .select("duration_seconds, started_at")
-        .eq("user_id", user.id),
-    ]).then(([answersRes, sessionsRes]) => {
-      setQuestionsToday(answersRes.count ?? 0);
+    // Fix: Use local date at midnight to avoid timezone shifts
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const fetch = async () => {
+      const [answersRes, sessionsRes] = await Promise.all([
+        supabase
+          .from("user_answers")
+          .select("id, answered_at")
+          .eq("user_id", user.id)
+          .gte("answered_at", startOfToday.toISOString()),
+        supabase
+          .from("study_sessions")
+          .select("duration_seconds, started_at")
+          .eq("user_id", user.id)
+          .gte("started_at", new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString()),
+      ]);
+
+      const todayStr = startOfToday.toDateString();
+      const todayAnswers = (answersRes.data ?? []).filter(a => new Date(a.answered_at).toDateString() === todayStr);
+      setQuestionsToday(todayAnswers.length);
 
       const sessions = sessionsRes.data ?? [];
-      const todaySecs = sessions
-        .filter((s) => new Date(s.started_at) >= today)
+      const todaySeconds = sessions
+        .filter(s => new Date(s.started_at).toDateString() === todayStr)
         .reduce((sum, s) => sum + (s.duration_seconds || 0), 0);
-      setHoursToday(Math.round((todaySecs / 3600) * 10) / 10);
+      setHoursToday(Math.round((todaySeconds / 3600) * 10) / 10);
 
-      // Streak calc
-      const sessionDays = new Set(sessions.map((s) => new Date(s.started_at).toDateString()));
-      let s = 0;
-      const now = new Date();
+      // Robust Streak Calculation
+      const sessionDays = new Set(sessions.map(s => new Date(s.started_at).toDateString()));
+      let curStreak = 0;
+      const checkDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
       for (let i = 0; i < 365; i++) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        if (sessionDays.has(d.toDateString())) s++;
-        else break;
+        if (sessionDays.has(checkDate.toDateString())) {
+          curStreak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else if (i === 0) {
+          // If haven't studied today, still check yesterday to keep streak alive
+          checkDate.setDate(checkDate.getDate() - 1);
+          continue;
+        } else {
+          break;
+        }
       }
-      setStreak(s);
-    });
+      setStreak(curStreak);
+    };
+
+    fetch();
   }, [user]);
 
   const questionsPct = Math.round((Math.min(questionsToday, DAILY_QUESTION_GOAL) / DAILY_QUESTION_GOAL) * 100);
   const hoursPct = Math.round((Math.min(hoursToday, DAILY_HOURS_GOAL) / DAILY_HOURS_GOAL) * 100);
   const overallPct = Math.round((questionsPct + hoursPct) / 2);
+
+  const getMotivation = () => {
+    if (overallPct >= 100) return "👑 META BATIDA! Você é lendário!";
+    if (overallPct >= 75) return "🔥 Quase lá! Só mais um pouco de esforço!";
+    if (overallPct >= 50) return "💪 Metade da meta! O topo está logo ali!";
+    if (overallPct >= 25) return "🚀 Grande começo! Mantenha a inércia.";
+    return "📚 O dia está começando. Vamos bater essa meta?";
+  };
 
   return (
     <motion.div
@@ -134,11 +157,20 @@ export default function DailyGoalWidget() {
     >
       <Card className="glass-card overflow-hidden relative">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
+
+        {overallPct >= 100 && (
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-transparent to-accent/10 pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          />
+        )}
+
         <CardHeader className="pb-2 relative z-10">
           <CardTitle className="font-heading text-base flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Target className="w-4 h-4 text-primary" />
+              <div className={`w-8 h-8 rounded-lg ${overallPct >= 100 ? "bg-green-500/10" : "bg-primary/10"} flex items-center justify-center`}>
+                <Target className={`w-4 h-4 ${overallPct >= 100 ? "text-green-500" : "text-primary"}`} />
               </div>
               Meta Diária
             </span>
@@ -149,12 +181,12 @@ export default function DailyGoalWidget() {
             </div>
           </CardTitle>
         </CardHeader>
-        <CardContent className="relative z-10 pb-5">
+        <CardContent className="relative z-10 pb-5 space-y-4">
           <div className="flex items-center justify-around">
             <CircularProgress
               value={questionsToday}
               max={DAILY_QUESTION_GOAL}
-              color="hsl(210, 100%, 52%)"
+              color={questionsPct >= 100 ? "hsl(152, 69%, 42%)" : "hsl(210, 100%, 52%)"}
               label="Questões"
               sublabel="resolvidas hoje"
             />
@@ -183,10 +215,30 @@ export default function DailyGoalWidget() {
               value={hoursToday}
               max={DAILY_HOURS_GOAL}
               size={100}
-              color="hsl(38, 92%, 50%)"
+              color={hoursPct >= 100 ? "hsl(152, 69%, 42%)" : "hsl(38, 92%, 50%)"}
               label="Horas"
               sublabel="estudadas hoje"
             />
+          </div>
+
+          {/* Full-width animated progress bar */}
+          <div className="space-y-2">
+            <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+              <motion.div
+                className="h-full rounded-full"
+                style={{
+                  background: overallPct >= 100
+                    ? "linear-gradient(90deg, hsl(152, 69%, 42%), hsl(152, 69%, 52%))"
+                    : overallPct >= 50
+                      ? "linear-gradient(90deg, hsl(38, 92%, 50%), hsl(38, 92%, 60%))"
+                      : "linear-gradient(90deg, hsl(210, 100%, 52%), hsl(210, 100%, 62%))",
+                }}
+                initial={{ width: "0%" }}
+                animate={{ width: `${Math.min(overallPct, 100)}%` }}
+                transition={{ duration: 1.5, ease: "easeOut", delay: 0.3 }}
+              />
+            </div>
+            <p className="text-xs text-center text-muted-foreground">{getMotivation()}</p>
           </div>
         </CardContent>
       </Card>

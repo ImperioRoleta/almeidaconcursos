@@ -122,15 +122,14 @@ export default function AdminMercadoPago() {
       </div>
 
       {/* Info banner */}
-      <Card className="border-[hsl(38,92%,50%)]/30 bg-[hsl(38,92%,50%)]/5">
+      <Card className="border-blue-500/30 bg-blue-500/5">
         <CardContent className="p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-[hsl(38,92%,50%)] shrink-0 mt-0.5" />
+          <ShieldCheck className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
           <div className="text-sm">
-            <p className="font-medium text-foreground">Importante sobre o Access Token</p>
+            <p className="font-medium text-foreground">Integração Ativa</p>
             <p className="text-muted-foreground mt-1">
-              O Access Token usado pela Edge Function é armazenado como <strong>secret do servidor</strong> (MERCADOPAGO_ACCESS_TOKEN).
-              Os campos abaixo servem como referência e backup. Para alterar o token ativo,
-              entre em contato com o suporte para atualizar o secret.
+              As credenciais salvas aqui são utilizadas automaticamente pela integração.
+              O Secret do servidor (MERCADOPAGO_ACCESS_TOKEN) funciona apenas como backup caso este campo esteja vazio.
             </p>
           </div>
         </CardContent>
@@ -240,7 +239,7 @@ export default function AdminMercadoPago() {
           </div>
           <div className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/50">
             <span className="text-sm">Secret do Servidor (MERCADOPAGO_ACCESS_TOKEN)</span>
-            <Badge className="bg-[hsl(142,71%,45%)]/10 text-[hsl(142,71%,45%)]">Ativo</Badge>
+            <Badge className="bg-blue-500/10 text-blue-500">Backup</Badge>
           </div>
         </CardContent>
       </Card>

@@ -75,6 +75,9 @@ export default function AdminQuestoes() {
           </SelectContent>
         </Select>
         {selectedSubject && <Button onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4 mr-1" /> Nova Questão</Button>}
+        <Button variant="outline" onClick={() => window.open("/simulados", "_blank")} className="ml-auto">
+          Testar Simulado (Aluno)
+        </Button>
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

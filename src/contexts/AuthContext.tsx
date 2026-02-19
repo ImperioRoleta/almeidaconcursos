@@ -7,13 +7,14 @@ type AuthContextType = {
   session: Session | null;
   user: User | null;
   isAdmin: boolean;
+  isTeacher: boolean;
   profile: any | null;
   loading: boolean;
   signOut: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
-  session: null, user: null, isAdmin: false, profile: null, loading: true, signOut: async () => { },
+  session: null, user: null, isAdmin: false, isTeacher: false, profile: null, loading: true, signOut: async () => { },
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -22,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isTeacher, setIsTeacher] = useState(false);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const initializedRef = useRef(false);
@@ -30,21 +32,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
 
     const fetchUserData = async (userId: string) => {
-      const [rolesRes, profileRes, subRes] = await Promise.all([
-        supabase.from("user_roles").select("role").eq("user_id", userId),
-        supabase.from("profiles").select("*, levels(*)").eq("user_id", userId).single(),
-        supabase.from("subscriptions").select("status").eq("user_id", userId).single(),
-      ]);
+      try {
+        const [rolesRes, profileRes, subRes] = await Promise.all([
+          supabase.from("user_roles").select("role").eq("user_id", userId),
+          supabase.from("profiles").select("*, levels(*)").eq("user_id", userId).maybeSingle(),
+          supabase.from("subscriptions").select("status").eq("user_id", userId).maybeSingle(),
+        ]);
 
-      if (!isMounted) return;
+        if (!isMounted) return;
 
-      if (subRes.data?.status === "blocked") {
-        await supabase.auth.signOut();
-        return;
+        if (subRes.data?.status === "blocked") {
+          console.warn("User is blocked. Signing out.");
+          await supabase.auth.signOut();
+          return;
+        }
+
+        const roles = rolesRes.data?.map((r: any) => r.role) || [];
+        setIsAdmin(roles.includes("admin"));
+        setIsTeacher(roles.includes("teacher"));
+
+        if (profileRes.data) {
+          setProfile(profileRes.data);
+        } else if (profileRes.error) {
+          console.error("Error fetching profile:", profileRes.error.message);
+        } else {
+          console.warn("No profile found for user:", userId);
+          // If no profile exists, create a basic one using metadata name if available
+          const displayName = user?.user_metadata?.name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Usuário";
+
+          const { data: newProfile } = await supabase.from("profiles").insert({
+            user_id: userId,
+            name: displayName
+          }).select("*, levels(*)").maybeSingle();
+
+          if (newProfile) setProfile(newProfile);
+        }
+      } catch (err) {
+        console.error("Critical auth data fetch error:", err);
       }
-
-      setIsAdmin(rolesRes.data?.some((r: any) => r.role === "admin") ?? false);
-      setProfile(profileRes.data);
     };
 
     // Set up listener FIRST (before getSession)
@@ -61,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }, 0);
         } else {
           setIsAdmin(false);
+          setIsTeacher(false);
           setProfile(null);
         }
       }
@@ -99,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, isAdmin, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ session, user, isAdmin, isTeacher, profile, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

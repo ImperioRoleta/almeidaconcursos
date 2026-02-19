@@ -15,12 +15,27 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const MP_ACCESS_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
-    if (!MP_ACCESS_TOKEN) throw new Error("MERCADOPAGO_ACCESS_TOKEN not configured");
-
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Try to get token from platform_settings (Admin Panel) first
+    const { data: dbSetting } = await adminClient
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "mp_access_token")
+      .single();
+
+    let MP_ACCESS_TOKEN = dbSetting?.value;
+
+    // Fallback to Env Var if not found in DB
+    if (!MP_ACCESS_TOKEN) {
+      MP_ACCESS_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
+    }
+
+    if (!MP_ACCESS_TOKEN) throw new Error("MERCADOPAGO_ACCESS_TOKEN not configured in Admin Panel or Secrets");
 
     // Auth validation using getClaims
     const authHeader = req.headers.get("Authorization");
@@ -41,8 +56,6 @@ serve(async (req) => {
 
     const userId = claimsData.claims.sub as string;
     const userEmail = claimsData.claims.email as string;
-
-    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { plan, coupon_code } = await req.json();
     if (!plan) throw new Error("Plan not provided");

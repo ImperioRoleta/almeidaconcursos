@@ -3,21 +3,28 @@
 // This enables autocomplete, go to definition, etc.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  // Log request start immediately
+  console.log(`[ai-correct-essay] Request received: ${req.method}`);
+
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      console.error("[ai-correct-essay] GEMINI_API_KEY not configured");
+      throw new Error("GEMINI_API_KEY not configured");
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -26,14 +33,19 @@ serve(async (req) => {
     // Auth
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace("Bearer ", "");
+    console.log(`[ai-correct-essay] Verifying auth...`);
     const { data: { user } } = await adminClient.auth.getUser(token);
     if (!user) {
+      console.error("[ai-correct-essay] Unauthorized user");
       return new Response(JSON.stringify({ error: "Não autenticado" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    console.log(`[ai-correct-essay] User verified: ${user.id}`);
 
     const { essay_id, content, title, theme } = await req.json();
+    console.log(`[ai-correct-essay] Payload received for essay ${essay_id}`);
+
     if (!essay_id || !content) throw new Error("Missing essay_id or content");
 
     const systemPrompt = `Você é um corretor especializado de redações para concursos públicos e ENEM.
@@ -59,92 +71,78 @@ IMPORTANTE: Retorne SOMENTE o JSON, nada mais.`;
 
     const userPrompt = `${theme ? `Tema: ${theme}\n` : ""}Título: ${title || "Sem título"}\n\nRedação:\n${content}`;
 
-    // Try with primary model, fallback to secondary
-    const models = ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"];
-    let correction: any = null;
-    let score = 0;
-    let lastError = "";
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 
-    for (const model of models) {
-      try {
-        console.log(`Trying model: ${model}`);
-        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-            temperature: 0.3,
-          }),
-        });
+    console.log("[ai-correct-essay] Calling Gemini API...");
+    const response = await fetch(geminiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          { role: "user", parts: [{ text: `${systemPrompt}\n\nREDAÇÃO:\n${userPrompt}` }] }
+        ],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 2048 }
+      }),
+    });
 
-        if (!aiResponse.ok) {
-          lastError = `Model ${model} returned ${aiResponse.status}`;
-          console.error(lastError, await aiResponse.text());
-          continue;
-        }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[ai-correct-essay] Gemini API error:", response.status, errorText);
 
-        const aiData = await aiResponse.json();
-        const rawContent = aiData.choices?.[0]?.message?.content || "";
-        console.log("AI raw response length:", rawContent.length);
-
-        // Extract JSON from response (handle markdown code blocks)
-        let jsonStr = rawContent.trim();
-        const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (jsonMatch) {
-          jsonStr = jsonMatch[1].trim();
-        }
-        // Also try to find JSON object directly
-        const objMatch = jsonStr.match(/\{[\s\S]*\}/);
-        if (objMatch) {
-          jsonStr = objMatch[0];
-        }
-
-        const parsed = JSON.parse(jsonStr);
-        score = Math.min(1000, Math.max(0, Math.round(parsed.score || 0)));
-        correction = {
-          feedback: parsed.feedback || "Correção realizada.",
-          competencies: {
-            c1: Math.min(200, Math.max(0, parsed.c1 || 0)),
-            c2: Math.min(200, Math.max(0, parsed.c2 || 0)),
-            c3: Math.min(200, Math.max(0, parsed.c3 || 0)),
-            c4: Math.min(200, Math.max(0, parsed.c4 || 0)),
-            c5: Math.min(200, Math.max(0, parsed.c5 || 0)),
-          },
-        };
-        break; // Success
-      } catch (modelErr) {
-        lastError = `Model ${model} error: ${modelErr}`;
-        console.error(lastError);
-        continue;
+      if (response.status === 429) {
+        throw new Error("Limite de uso da IA excedido (Cota Gratuita). Tente novamente em alguns minutos.");
       }
+
+      throw new Error(`AI failed: ${response.status}`);
     }
 
-    if (!correction) {
-      throw new Error(`All models failed. Last error: ${lastError}`);
+    const aiData = await response.json();
+    const rawContent = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    // Robust JSON extraction
+    let cleanJson = rawContent;
+    const jsonMatch = rawContent.match(/```json\n?([\s\S]*?)\n?```/) || rawContent.match(/```\n?([\s\S]*?)\n?```/);
+    if (jsonMatch) {
+      cleanJson = jsonMatch[1];
     }
+    const jsonStr = cleanJson.trim();
+
+    console.log("[ai-correct-essay] AI Raw Response (Snippet):", rawContent.substring(0, 100));
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error("[ai-correct-essay] JSON Parse Error:", parseError, "String:", jsonStr);
+      throw new Error("Falha ao processar resposta da IA. Tente novamente.");
+    }
+
+    const score = parsed.score;
+    const correction = parsed;
 
     // Update essay
-    await adminClient.from("essays").update({
+    console.log(`[ai-correct-essay] Updating essay ${essay_id} with score ${score}`);
+    const { error: updateError } = await adminClient.from("essays").update({
       status: "corrected",
       score,
       correction,
       corrected_at: new Date().toISOString(),
     }).eq("id", essay_id);
 
+    if (updateError) {
+      console.error("[ai-correct-essay] DB Update Error:", updateError);
+      throw new Error("Erro ao salvar correção: " + updateError.message);
+    }
+
+    console.log("[ai-correct-essay] Success!");
     return new Response(JSON.stringify({ success: true, score }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("correct-essay error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    console.error("[ai-correct-essay] Global Error:", e);
+    const errorMessage = e instanceof Error ? e.message : "Erro desconhecido na correção";
+    return new Response(JSON.stringify({ error: errorMessage, stack: e instanceof Error ? e.stack : undefined }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

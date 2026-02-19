@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Users, BookOpen, HelpCircle, FileText, Crown, TrendingUp, Activity, Trophy,
   AlertTriangle, DollarSign, CreditCard, Clock, ScrollText, Percent, ArrowUpRight,
-  UserPlus, BarChart3, Zap, Brain,
+  UserPlus, BarChart3, Zap, Brain, PenLine,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
@@ -406,6 +406,7 @@ export default function AdminDashboard() {
             { label: "Pagamentos", url: "/admin/pagamentos", icon: CreditCard },
             { label: "Conteúdo", url: "/admin/conteudo", icon: BookOpen },
             { label: "Questões", url: "/admin/questoes", icon: HelpCircle },
+            { label: "Redações", url: "/admin/redacoes", icon: PenLine },
             { label: "Notificações", url: "/admin/notificacoes", icon: FileText },
             { label: "IA Admin", url: "/admin/ia", icon: Brain },
             { label: "Planos & Cupons", url: "/admin/planos", icon: Crown },

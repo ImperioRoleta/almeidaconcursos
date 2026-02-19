@@ -8,13 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
-  BookOpen, ChevronRight, CheckCircle, Lock, Volume2, VolumeX,
-  Video, RotateCcw, Layers, GraduationCap, ArrowLeft, Play, Sparkles, FileText,
+  BookOpen, CheckCircle2, ChevronRight, PlayCircle, Loader2,
+  Search, Book, Play, Clock, Award, Lock, Sparkles, RotateCcw, Layers, GraduationCap, ArrowLeft, FileText,
+  ChevronLeft, Video, Volume2, VolumeX, CheckCircle
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
 import LessonQuestions from "@/components/LessonQuestions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion, AnimatePresence } from "framer-motion";
 
 const LessonContentTabs = ({ videoPlayer, writtenContent }: { videoPlayer: React.ReactNode; writtenContent: React.ReactNode }) => (
   <Tabs defaultValue="video" className="w-full">
@@ -29,7 +31,7 @@ const LessonContentTabs = ({ videoPlayer, writtenContent }: { videoPlayer: React
 
 export default function Aulas() {
   const { user } = useAuth();
-  const { isActive } = useSubscription();
+  const { canAccessFullLessons, isActive, loading: subLoading } = useSubscription();
   const navigate = useNavigate();
   const [subjects, setSubjects] = useState<any[]>([]);
   const [topics, setTopics] = useState<any[]>([]);
@@ -45,6 +47,7 @@ export default function Aulas() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Load feature toggles
   useEffect(() => {
@@ -148,6 +151,8 @@ export default function Aulas() {
         [selectedSubject]: (prev[selectedSubject] || 0) + 1,
       }));
     }
+    setShowCelebration(true);
+    setTimeout(() => setShowCelebration(false), 5000);
   };
 
   const resetSubjectProgress = async (subjectId: string) => {
@@ -313,22 +318,99 @@ export default function Aulas() {
         })()}
 
         {/* Inline questions for this topic */}
-        {selectedTopic && <LessonQuestions topicId={selectedTopic} />}
+        {selectedLesson && <LessonQuestions lessonId={selectedLesson.id} />}
 
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          {!completedIds.has(selectedLesson.id) ? (
-            <Button onClick={() => markComplete(selectedLesson.id)} className="gradient-primary text-primary-foreground">
-              <CheckCircle className="w-4 h-4 mr-2" /> Marcar como concluída
-            </Button>
-          ) : (
-            <p className="text-[hsl(var(--chart-4))] flex items-center gap-2 text-sm font-medium"><CheckCircle className="w-4 h-4" /> Aula concluída</p>
-          )}
+        <div className="flex items-center justify-between gap-4 pt-6 border-t border-border/50">
+          <div className="flex items-center gap-3">
+            {lessonIdx > 0 && (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => { stopSpeaking(); setSelectedLesson(lessons[lessonIdx - 1]); }}
+                className="rounded-xl border-border/40 hover:bg-muted/50 transition-all hover:-translate-x-1"
+              >
+                <ChevronLeft className="w-5 h-5 mr-1" /> Anterior
+              </Button>
+            )}
+
+            {!completedIds.has(selectedLesson.id) ? (
+              <Button
+                onClick={() => markComplete(selectedLesson.id)}
+                size="lg"
+                className="gradient-primary text-primary-foreground shadow-lg shadow-primary/20 rounded-xl px-6 hover:scale-105 transition-all"
+              >
+                <CheckCircle className="w-5 h-5 mr-2" /> Concluir Aula
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[hsl(var(--chart-4))]/10 border border-[hsl(var(--chart-4))]/20">
+                <CheckCircle className="w-5 h-5 text-[hsl(var(--chart-4))]" />
+                <span className="text-[hsl(var(--chart-4))] text-sm font-bold uppercase tracking-wider">Concluída</span>
+              </div>
+            )}
+          </div>
+
           {lessonIdx < lessons.length - 1 && (
-            <Button variant="outline" onClick={() => { stopSpeaking(); setSelectedLesson(lessons[lessonIdx + 1]); }}>
-              Próxima Aula <ChevronRight className="w-4 h-4 ml-1" />
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => { stopSpeaking(); setSelectedLesson(lessons[lessonIdx + 1]); }}
+              className="rounded-xl border-border/40 hover:bg-muted/50 transition-all hover:translate-x-1"
+            >
+              Próxima <ChevronRight className="w-5 h-5 ml-1" />
             </Button>
           )}
         </div>
+
+        {/* Celebration Overlay */}
+        <AnimatePresence>
+          {showCelebration && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none"
+            >
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 1.5, opacity: 0 }}
+                className="bg-background/80 backdrop-blur-xl p-10 rounded-[2.5rem] border-2 border-primary/30 shadow-[0_0_100px_rgba(25, 118, 210, 0.2)] text-center relative overflow-hidden mx-4"
+              >
+                <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-[hsl(var(--chart-4))]/10" />
+                <motion.div
+                  animate={{
+                    rotate: [0, 10, -10, 10, 0],
+                    scale: [1, 1.2, 1, 1.2, 1]
+                  }}
+                  transition={{ duration: 0.5, repeat: 2 }}
+                  className="inline-block mb-6 relative z-10"
+                >
+                  <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto shadow-lg mb-4">
+                    <CheckCircle className="w-10 h-10 text-white" />
+                  </div>
+                </motion.div>
+                <h2 className="text-3xl font-heading font-bold mb-2 relative z-10">Sensacional! 🚀</h2>
+                <p className="text-muted-foreground font-medium relative z-10">Você acabou de concluir mais uma etapa rumo à aprovação.</p>
+
+                {/* Decoration particles */}
+                <motion.div
+                  className="absolute top-10 left-10 text-primary opacity-40"
+                  animate={{ y: [-10, 10], opacity: [0.4, 0.8] }}
+                  transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
+                >
+                  <Sparkles className="w-6 h-6" />
+                </motion.div>
+                <motion.div
+                  className="absolute bottom-10 right-10 text-[hsl(var(--chart-4))] opacity-40"
+                  animate={{ y: [10, -10], opacity: [0.4, 0.8] }}
+                  transition={{ duration: 2.5, repeat: Infinity, repeatType: "reverse" }}
+                >
+                  <Sparkles className="w-8 h-8" />
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -377,7 +459,7 @@ export default function Aulas() {
                         <p className="font-heading font-bold text-base">{s.name}</p>
                         {s.description && <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{s.description}</p>}
                       </div>
-                      {isComplete && <CheckCircle className="w-5 h-5 text-[hsl(var(--chart-4))] shrink-0" />}
+                      {isComplete && <CheckCircle2 className="w-5 h-5 text-[hsl(var(--chart-4))] shrink-0" />}
                     </div>
 
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -501,7 +583,7 @@ export default function Aulas() {
 
         <div className="space-y-1">
           {lessons.map((l, idx) => {
-            const locked = l.is_premium && !isActive;
+            const locked = !subLoading && l.is_premium && !isActive;
             const isDone = completedIds.has(l.id);
             const isFirst = idx === 0;
             const isLast = idx === lessons.length - 1;

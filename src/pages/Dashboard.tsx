@@ -11,6 +11,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { StudyTimer } from "@/components/StudyTimer";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import UpgradePrompt from "@/components/UpgradePrompt";
 import DailyGoalWidget from "@/components/DailyGoalWidget";
@@ -42,13 +43,21 @@ export default function Dashboard() {
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [subjectStats, setSubjectStats] = useState<any[]>([]);
   const [subscription, setSubscription] = useState<any>(null);
+  const [subLoading, setSubLoading] = useState(true);
   const [achievementStats, setAchievementStats] = useState({ total: 0, unlocked: 0 });
   const [recentAchievements, setRecentAchievements] = useState<any[]>([]);
+  const [xpData, setXpData] = useState<any>({ current: 0, level: null, nextLevel: null, progress: 0 });
+  const [loading, setLoading] = useState(true);
 
-  // Redirect new users to diagnostic
+  // Redirect new users to diagnostic (skip for admins and teachers)
   useEffect(() => {
     if (!user) return;
     const checkDiagnostic = async () => {
+      // Admins and teachers skip diagnostics
+      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+      const userRoles = roles?.map(r => r.role) || [];
+      if (userRoles.includes("admin") || userRoles.includes("teacher")) return;
+
       const { data } = await supabase
         .from("diagnostic_results")
         .select("id")
@@ -61,123 +70,108 @@ export default function Dashboard() {
     checkDiagnostic();
   }, [user, navigate]);
 
-  // Auto-promote level
-  useEffect(() => {
-    if (!user || !profile) return;
-    const checkPromotion = async () => {
-      const [levelsRes, sessionsRes, answersRes] = await Promise.all([
-        supabase.from("levels").select("*").order("rank_order"),
-        supabase.from("study_sessions").select("duration_seconds").eq("user_id", user.id),
-        supabase.from("user_answers").select("is_correct").eq("user_id", user.id),
-      ]);
-      const allLevels = levelsRes.data ?? [];
-      const totalHours = (sessionsRes.data ?? []).reduce((s, r) => s + (r.duration_seconds || 0), 0) / 3600;
-      const answers = answersRes.data ?? [];
-      const accuracy = answers.length > 0 ? (answers.filter(a => a.is_correct).length / answers.length) * 100 : 0;
-      const totalXP = await calculateUserXP(user.id);
-      const currentOrder = profile.levels?.rank_order || 1;
-
-      let bestLevel = currentOrder;
-      for (const lv of allLevels) {
-        if (
-          lv.rank_order > currentOrder &&
-          totalHours >= (lv.min_hours || 0) &&
-          accuracy >= (lv.min_accuracy || 0) &&
-          totalXP >= (lv.min_xp || 0)
-        ) {
-          bestLevel = Math.max(bestLevel, lv.rank_order);
-        }
-      }
-      if (bestLevel > currentOrder) {
-        const newLevel = allLevels.find(l => l.rank_order === bestLevel);
-        if (newLevel) {
-          await supabase.from("profiles").update({ level_id: newLevel.id }).eq("user_id", user.id);
-          toast.success(`🎖️ Parabéns! Você foi promovido a ${newLevel.name}!`, { duration: 5000 });
-        }
-      }
-    };
-    checkPromotion();
-  }, [user, profile]);
-
   useEffect(() => {
     if (!user) return;
+
     const fetchStats = async () => {
-      const [sessionsRes, answersRes, progressRes, subjectsRes, subRes, achRes, uaRes] = await Promise.all([
-        supabase.from("study_sessions").select("duration_seconds, started_at").eq("user_id", user.id),
-        supabase.from("user_answers").select("is_correct, question_id, answered_at").eq("user_id", user.id),
-        supabase.from("user_progress").select("id").eq("user_id", user.id).eq("completed", true),
-        supabase.from("subjects").select("id, name"),
-        supabase.from("subscriptions").select("*").eq("user_id", user.id).single(),
-        supabase.from("achievements").select("id", { count: "exact", head: true }),
-        supabase.from("user_achievements").select("*, achievements(name, icon)").eq("user_id", user.id).order("unlocked_at", { ascending: false }).limit(3),
-      ]);
+      try {
+        setLoading(true);
+        const [sessionsRes, answersRes, progressRes, subjectsRes, subRes, achRes, uaRes] = await Promise.all([
+          supabase.from("study_sessions").select("duration_seconds, started_at").eq("user_id", user.id),
+          supabase.from("user_answers").select("is_correct, question_id, answered_at").eq("user_id", user.id),
+          supabase.from("user_progress").select("id").eq("user_id", user.id).eq("completed", true),
+          supabase.from("subjects").select("id, name"),
+          supabase.from("subscriptions").select("*").eq("user_id", user.id).maybeSingle(),
+          supabase.from("achievements").select("id", { count: "exact", head: true }),
+          supabase.from("user_achievements").select("*, achievements(name, icon)").eq("user_id", user.id).order("unlocked_at", { ascending: false }).limit(3),
+        ]);
 
-      setSubscription(subRes.data);
-      setAchievementStats({ total: achRes.count ?? 0, unlocked: uaRes.data?.length ?? 0 });
-      setRecentAchievements(uaRes.data ?? []);
+        if (subRes.data) setSubscription(subRes.data);
+        setSubLoading(false);
+        setAchievementStats({ total: achRes.count ?? 0, unlocked: uaRes.data?.length ?? 0 });
+        setRecentAchievements(uaRes.data ?? []);
 
-      const sessions = sessionsRes.data ?? [];
-      const totalSeconds = sessions.reduce((sum, s) => sum + (s.duration_seconds || 0), 0);
-      const answers = answersRes.data ?? [];
-      const correct = answers.filter(a => a.is_correct).length;
+        const sessions = sessionsRes.data ?? [];
+        const answers = answersRes.data ?? [];
+        const correct = answers.filter(a => a.is_correct).length;
 
-      const sessionDays = new Set(sessions.map(s => new Date(s.started_at).toDateString()));
-      const answerDays = new Set(answers.map(a => new Date(a.answered_at).toDateString()));
-      const allDays = new Set([...sessionDays, ...answerDays]);
-      let streak = 0;
-      const today = new Date();
-      for (let i = 0; i < 365; i++) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        if (allDays.has(d.toDateString())) streak++;
-        else break;
-      }
+        const allDays = new Set([
+          ...sessions.map(s => new Date(s.started_at).toDateString()),
+          ...answers.map(a => new Date(a.answered_at).toDateString()),
+        ]);
+        let streak = 0;
+        const today = new Date();
+        for (let i = 0; i < 365; i++) {
+          const d = new Date(today);
+          d.setDate(d.getDate() - i);
+          if (allDays.has(d.toDateString())) streak++;
+          else break;
+        }
 
-      setStats({
-        hours: Math.round((totalSeconds / 3600) * 10) / 10,
-        accuracy: answers.length > 0 ? Math.round((correct / answers.length) * 100) : 0,
-        lessonsCompleted: progressRes.data?.length ?? 0,
-        questionsAnswered: answers.length,
-        streak,
-      });
-
-      const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-      const weekData = days.map(() => 0);
-      const now = new Date();
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      sessions.filter(s => new Date(s.started_at) >= weekAgo).forEach(s => {
-        const day = new Date(s.started_at).getDay();
-        weekData[day] += (s.duration_seconds || 0) / 3600;
-      });
-      setWeeklyData(days.map((day, i) => ({ day, horas: Math.round(weekData[i] * 10) / 10 })));
-
-      const subjectMap: Record<string, { name: string; correct: number; total: number }> = {};
-      const subjectsList = subjectsRes.data ?? [];
-      const questionIds = [...new Set(answers.map(a => a.question_id))];
-      if (questionIds.length > 0) {
-        const { data: qs } = await supabase.from("questions").select("id, subject_id").in("id", questionIds);
-        const qMap: Record<string, string> = {};
-        qs?.forEach(q => { qMap[q.id] = q.subject_id; });
-        answers.forEach(a => {
-          const sid = qMap[a.question_id];
-          if (!sid) return;
-          const sub = subjectsList.find(s => s.id === sid);
-          if (!sub) return;
-          if (!subjectMap[sid]) subjectMap[sid] = { name: sub.name, correct: 0, total: 0 };
-          subjectMap[sid].total++;
-          if (a.is_correct) subjectMap[sid].correct++;
+        const totalSeconds = sessions.reduce((sum, s) => sum + (s.duration_seconds || 0), 0);
+        setStats({
+          hours: Math.round((totalSeconds / 3600) * 10) / 10,
+          accuracy: answers.length > 0 ? Math.round((correct / answers.length) * 100) : 0,
+          lessonsCompleted: progressRes.data?.length ?? 0,
+          questionsAnswered: answers.length,
+          streak,
         });
+
+        const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+        const weekData = days.map(() => 0);
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        sessions.filter(s => new Date(s.started_at) >= weekAgo).forEach(s => {
+          const day = new Date(s.started_at).getDay();
+          weekData[day] += (s.duration_seconds || 0) / 3600;
+        });
+        setWeeklyData(days.map((day, i) => ({ day, horas: Math.round(weekData[i] * 10) / 10 })));
+
+        const subjectMap: Record<string, { name: string; correct: number; total: number }> = {};
+        const subjectsList = subjectsRes.data ?? [];
+        const questionIds = [...new Set(answers.map(a => a.question_id))];
+        if (questionIds.length > 0) {
+          const { data: qs } = await supabase.from("questions").select("id, subject_id").in("id", questionIds);
+          const qMap: Record<string, string> = {};
+          qs?.forEach(q => { qMap[q.id] = q.subject_id; });
+          answers.forEach(a => {
+            const sid = qMap[a.question_id];
+            if (!sid) return;
+            const sub = subjectsList.find(s => s.id === sid);
+            if (!sub) return;
+            if (!subjectMap[sid]) subjectMap[sid] = { name: sub.name, correct: 0, total: 0 };
+            subjectMap[sid].total++;
+            if (a.is_correct) subjectMap[sid].correct++;
+          });
+        }
+        setSubjectStats(Object.values(subjectMap).map(s => ({
+          name: s.name.length > 12 ? s.name.slice(0, 12) + "…" : s.name,
+          acerto: s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+        })));
+
+        // Basic XP for simple greeting next
+        const totalXP = await calculateUserXP(user.id);
+        const { data: allLevels } = await supabase.from("levels").select("*").order("rank_order");
+        const levels = allLevels ?? [];
+        const currentLv = [...levels].reverse().find(l => totalXP >= (l.min_xp || 0)) || levels[0];
+        const nextLv = levels.find(l => l.rank_order === (currentLv?.rank_order || 0) + 1);
+
+        setXpData({
+          current: totalXP,
+          level: currentLv || null,
+          nextLevel: nextLv || null,
+          progress: currentLv && nextLv ? Math.round(((totalXP - currentLv.min_xp) / (nextLv.min_xp - currentLv.min_xp)) * 100) : 100
+        });
+      } catch (err) {
+        console.error("Dashboard error:", err);
+      } finally {
+        setLoading(false);
       }
-      setSubjectStats(Object.values(subjectMap).map(s => ({
-        name: s.name.length > 12 ? s.name.slice(0, 12) + "…" : s.name,
-        acerto: s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
-      })));
     };
     fetchStats();
   }, [user]);
 
   const levelName = profile?.levels?.name || "Recruta";
-  const isExpired = subscription?.expire_date && new Date(subscription.expire_date) < new Date();
+  const isExpired = !subLoading && subscription?.expire_date && new Date(subscription.expire_date) < new Date();
   const COLORS = ["hsl(210, 100%, 52%)", "hsl(220, 14%, 14%)"];
   const pieData = [
     { name: "Acertos", value: stats.accuracy || 1 },
@@ -199,15 +193,48 @@ export default function Dashboard() {
       initial="hidden"
       animate="show"
     >
-      {/* Welcome header */}
-      <motion.div variants={item} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-bold">Olá, {profile?.name || "Aluno"} 👋</h1>
-          <p className="text-muted-foreground">
-            Continue evoluindo • <span className="text-accent font-semibold">{levelName}</span>
-          </p>
+      {/* Reduced Header */}
+      <motion.div variants={item} className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <Badge variant="outline" className="mb-2 border-primary/30 text-primary bg-primary/5 animate-pulse">
+              {xpData.level?.name || "RECRUTA"} - NÍVEL {xpData.level?.rank_order || 1}
+            </Badge>
+            <h1 className="font-heading text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3">
+              Olá, {profile?.name || "Aluno"} 👋
+            </h1>
+            <p className="text-muted-foreground font-medium">
+              Continue sua jornada para se tornar uma <span className="text-primary font-bold">Lenda da Aprovação</span>.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <ContinueButton className="shadow-xl shadow-primary/20" />
+          </div>
         </div>
-        <ContinueButton className="w-full md:w-auto" />
+
+        {/* Minimal XP Bar for Dashboard */}
+        <Card className="glass-card border-primary/10 overflow-hidden">
+          <div className="h-1.5 w-full bg-muted/30">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${xpData.progress}%` }}
+              className="h-full bg-gradient-to-r from-primary to-accent relative"
+            >
+              <div className="absolute inset-0 bg-white/20 blur-[2px] animate-shimmer" />
+            </motion.div>
+          </div>
+          <CardContent className="py-3 px-6 flex justify-between items-center bg-card/10 backdrop-blur-sm">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-primary" />
+              <span className="text-xs font-black font-mono tracking-tighter">
+                {xpData.current.toLocaleString()} / {xpData.nextLevel?.min_xp ? xpData.nextLevel.min_xp.toLocaleString() : 'MAX'} XP
+              </span>
+            </div>
+            <Link to="/perfil" className="text-[10px] font-black underline uppercase tracking-widest text-primary/70 hover:text-primary transition-colors">
+              Ver Detalhes do Upamento →
+            </Link>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Subscription warning */}
@@ -275,9 +302,9 @@ export default function Dashboard() {
           <CardContent className="grid grid-cols-2 gap-2">
             {[
               { label: "Questões", url: "/questoes", icon: Target },
-              { label: "Simulado", url: "/simulados", icon: BarChart3 },
+              { label: "Caderno de Erros", url: "/caderno-erros", icon: BookOpen },
               { label: "Aulas", url: "/aulas", icon: BookOpen },
-              { label: "Ranking", url: "/ranking", icon: Trophy },
+              { label: "Relatório", url: "/relatorio", icon: BarChart3 },
             ].map((navItem, i) => (
               <Link key={i} to={navItem.url}>
                 <Button variant="outline" className="w-full justify-start gap-2 h-10">

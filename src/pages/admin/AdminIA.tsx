@@ -14,8 +14,10 @@ import ReactMarkdown from "react-markdown";
 export default function AdminIA() {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [topics, setTopics] = useState<any[]>([]);
+  const [lessons, setLessons] = useState<any[]>([]);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedTopic, setSelectedTopic] = useState("");
+  const [selectedLesson, setSelectedLesson] = useState("");
   const [prompt, setPrompt] = useState("");
   const [result, setResult] = useState("");
   const [savedInfo, setSavedInfo] = useState<{ saved: number; total: number } | null>(null);
@@ -30,6 +32,11 @@ export default function AdminIA() {
     if (!selectedSubject) { setTopics([]); return; }
     supabase.from("topics").select("*").eq("subject_id", selectedSubject).order("order_index").then(({ data }) => setTopics(data ?? []));
   }, [selectedSubject]);
+
+  useEffect(() => {
+    if (!selectedTopic) { setLessons([]); return; }
+    supabase.from("lessons").select("*").eq("topic_id", selectedTopic).order("order_index").then(({ data }) => setLessons(data ?? []));
+  }, [selectedTopic]);
 
   const generate = async () => {
     if (!prompt.trim()) { toast.error("Digite um prompt"); return; }
@@ -55,6 +62,7 @@ export default function AdminIA() {
           action: tab === "lessons" ? "generate_lessons" : tab === "questions" ? "generate_questions" : "general",
           subject_id: selectedSubject || undefined,
           topic_id: selectedTopic || undefined,
+          lesson_id: selectedLesson || undefined,
         }),
       });
 
@@ -192,7 +200,7 @@ export default function AdminIA() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Matéria</Label>
-                  <Select value={selectedSubject} onValueChange={v => { setSelectedSubject(v); setSelectedTopic(""); }}>
+                  <Select value={selectedSubject} onValueChange={v => { setSelectedSubject(v); setSelectedTopic(""); setSelectedLesson(""); }}>
                     <SelectTrigger className="h-11"><SelectValue placeholder="Selecione a matéria..." /></SelectTrigger>
                     <SelectContent>
                       {subjects.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
@@ -200,8 +208,8 @@ export default function AdminIA() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Assunto (opcional)</Label>
-                  <Select value={selectedTopic} onValueChange={setSelectedTopic} disabled={!selectedSubject}>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Assunto</Label>
+                  <Select value={selectedTopic} onValueChange={v => { setSelectedTopic(v); setSelectedLesson(""); }} disabled={!selectedSubject}>
                     <SelectTrigger className="h-11"><SelectValue placeholder="Todos os assuntos" /></SelectTrigger>
                     <SelectContent>
                       {topics.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
@@ -210,10 +218,28 @@ export default function AdminIA() {
                 </div>
               </div>
 
+              {selectedTopic && (
+                <div className="space-y-2 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                  <Label className="text-xs uppercase tracking-wider text-primary font-bold flex items-center gap-2">
+                    <Sparkles className="w-3 h-3" /> Aula Específica (Recomendado)
+                  </Label>
+                  <Select value={selectedLesson} onValueChange={setSelectedLesson}>
+                    <SelectTrigger className="h-11 bg-background border-primary/20"><SelectValue placeholder="Selecione a aula para vincular as questões..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Geral (apenas assunto)</SelectItem>
+                      {lessons.map(l => <SelectItem key={l.id} value={l.id}>{l.title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground italic">Vincular questões a uma aula garante uma experiência de estudo mais organizada para o aluno.</p>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Prompt</Label>
                 <Textarea value={prompt} onChange={e => setPrompt(e.target.value)}
-                  placeholder={`Ex: Gere 10 questões de ${subjectName || "Direito Constitucional"} com alternativas e explicação detalhada`}
+                  placeholder={selectedLesson && selectedLesson !== "none"
+                    ? `Ex: Gere 5 questões difíceis baseadas especificamente no conteúdo desta aula.`
+                    : `Ex: Gere 10 questões de ${subjectName || "Direito Constitucional"} com alternativas e explicação detalhada`}
                   rows={4} className="resize-none" />
               </div>
 

@@ -33,7 +33,7 @@ const subjectIconColors = [
 
 export default function Questoes() {
   const { user } = useAuth();
-  const { isActive } = useSubscription();
+  const { isActive, loading: subLoading } = useSubscription();
   const navigate = useNavigate();
 
   // Subject list state
@@ -100,7 +100,7 @@ export default function Questoes() {
 
   // Count today's answers for free users
   useEffect(() => {
-    if (!user || isActive) return;
+    if (!user || isActive || subLoading) return;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     supabase
@@ -111,8 +111,8 @@ export default function Questoes() {
       .then(({ count }) => setTodayCount(count ?? 0));
   }, [user, isActive]);
 
-  const dailyLimitReached = !isActive && todayCount >= FREE_DAILY_LIMIT;
-  const remaining = Math.max(0, FREE_DAILY_LIMIT - todayCount);
+  const dailyLimitReached = !subLoading && !isActive && todayCount >= FREE_DAILY_LIMIT;
+  const remaining = !subLoading ? Math.max(0, FREE_DAILY_LIMIT - todayCount) : FREE_DAILY_LIMIT;
 
   const startPractice = async (subjectId: string) => {
     if (dailyLimitReached) {
@@ -291,8 +291,8 @@ export default function Questoes() {
           <p className="text-muted-foreground text-sm mt-1">Pratique por matéria e acompanhe seu progresso</p>
         </div>
 
-        {/* Daily limit banner */}
-        {!isActive && (
+        {/* Daily limit banner — only shown after subscription is loaded and user is NOT active */}
+        {!subLoading && !isActive && (
           <div className="rounded-xl border border-accent/20 bg-accent/5 p-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
@@ -446,12 +446,12 @@ export default function Questoes() {
               key={qq.id}
               onClick={() => goToQuestion(idx)}
               className={`w-7 h-7 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center justify-center ${isCurrent
-                  ? "bg-primary text-primary-foreground ring-2 ring-primary/30 scale-110"
-                  : a
-                    ? a.isCorrect
-                      ? "bg-[hsl(var(--chart-4))]/15 text-[hsl(var(--chart-4))] border border-[hsl(var(--chart-4))]/30"
-                      : "bg-destructive/15 text-destructive border border-destructive/30"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                ? "bg-primary text-primary-foreground ring-2 ring-primary/30 scale-110"
+                : a
+                  ? a.isCorrect
+                    ? "bg-[hsl(var(--chart-4))]/15 text-[hsl(var(--chart-4))] border border-[hsl(var(--chart-4))]/30"
+                    : "bg-destructive/15 text-destructive border border-destructive/30"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
                 }`}
             >
               {a ? (a.isCorrect ? "✓" : "✗") : idx + 1}
@@ -466,10 +466,10 @@ export default function Questoes() {
           {/* Question header */}
           <div className="flex items-start gap-4">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 font-mono font-bold ${alreadyAnswered
-                ? alreadyAnswered.isCorrect
-                  ? "bg-[hsl(var(--chart-4))]/10 text-[hsl(var(--chart-4))]"
-                  : "bg-destructive/10 text-destructive"
-                : "bg-primary/10 text-primary"
+              ? alreadyAnswered.isCorrect
+                ? "bg-[hsl(var(--chart-4))]/10 text-[hsl(var(--chart-4))]"
+                : "bg-destructive/10 text-destructive"
+              : "bg-primary/10 text-primary"
               }`}>
               {String(currentIdx + 1).padStart(2, "0")}
             </div>
@@ -478,8 +478,8 @@ export default function Questoes() {
               <div className="flex items-center gap-2 mt-2">
                 {q.difficulty && (
                   <Badge variant="outline" className={`text-xs py-0.5 ${q.difficulty === "easy" ? "border-[hsl(var(--chart-4))]/40 text-[hsl(var(--chart-4))]"
-                      : q.difficulty === "hard" ? "border-destructive/40 text-destructive"
-                        : "border-accent/40 text-accent"
+                    : q.difficulty === "hard" ? "border-destructive/40 text-destructive"
+                      : "border-accent/40 text-accent"
                     }`}>
                     {q.difficulty === "easy" ? "Fácil" : q.difficulty === "hard" ? "Difícil" : "Médio"}
                   </Badge>
@@ -513,10 +513,10 @@ export default function Questoes() {
                 <div key={opt.id} className={classes} onClick={() => handleAnswer(opt.id)}>
                   <div className="flex items-center gap-4">
                     <span className={`w-9 h-9 rounded-lg flex items-center justify-center font-mono font-bold text-sm shrink-0 ${currentRevealed && opt.is_correct
-                        ? "bg-[hsl(var(--chart-4))]/10 text-[hsl(var(--chart-4))]"
-                        : currentRevealed && opt.id === currentAnswer && !opt.is_correct
-                          ? "bg-destructive/10 text-destructive"
-                          : "bg-muted text-muted-foreground"
+                      ? "bg-[hsl(var(--chart-4))]/10 text-[hsl(var(--chart-4))]"
+                      : currentRevealed && opt.id === currentAnswer && !opt.is_correct
+                        ? "bg-destructive/10 text-destructive"
+                        : "bg-muted text-muted-foreground"
                       }`}>
                       {opt.label}
                     </span>

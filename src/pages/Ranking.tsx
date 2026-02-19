@@ -28,7 +28,7 @@ const FREE_VISIBLE_LIMIT = 3;
 
 export default function Ranking() {
   const { user } = useAuth();
-  const { isActive } = useSubscription();
+  const { isActive, loading: subLoading } = useSubscription();
   const navigate = useNavigate();
   const [entries, setEntries] = useState<RankEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,9 +136,9 @@ export default function Ranking() {
     { key: "streak", label: "Sequência", icon: Flame },
   ];
 
-  // Visible entries for free users
-  const visibleEntries = isActive ? sorted : sorted.slice(0, FREE_VISIBLE_LIMIT);
-  const hiddenCount = isActive ? 0 : Math.max(0, sorted.length - FREE_VISIBLE_LIMIT);
+  // Only limit after subscription is loaded to avoid flash
+  const visibleEntries = (!subLoading && !isActive) ? sorted.slice(0, FREE_VISIBLE_LIMIT) : sorted;
+  const hiddenCount = (!subLoading && !isActive) ? Math.max(0, sorted.length - FREE_VISIBLE_LIMIT) : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -241,7 +241,7 @@ export default function Ranking() {
                         {i + 1}º
                       </span>
                       <Avatar className="w-9 h-9 shrink-0">
-                        {entry.avatar_url ? <AvatarImage src={entry.avatar_url} alt={entry.name} /> : null}
+                        <AvatarImage src={entry.avatar_url || "/avatar.png"} alt={entry.name} className="object-cover" />
                         <AvatarFallback className="bg-primary/10 text-primary text-xs">
                           {(entry.name || "A").charAt(0).toUpperCase()}
                         </AvatarFallback>

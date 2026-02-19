@@ -8,42 +8,54 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
-    if (req.method === "OPTIONS") {
-        return new Response(null, { headers: corsHeaders });
-    }
+    if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
     try {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+        const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
         const { code, plan } = await req.json();
 
         if (!code) {
-            throw new Error("Código do cupom é obrigatório");
+            return new Response(
+                JSON.stringify({ valid: false, message: "Código do cupom é obrigatório." }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
         }
 
-        // Convert code to uppercase for case-insensitive comparison
         const normalizedCode = code.toUpperCase().trim();
+        console.log(`Validando cupom: ${normalizedCode} para plano: ${plan || "todos"}`);
 
-        // Fetch coupon from database
-        const { data: coupon, error } = await supabase
+        // Fetch coupon
+        const { data: coupon, error: dbError } = await supabase
             .from("coupons")
             .select("*")
             .eq("code", normalizedCode)
             .eq("is_active", true)
-            .single();
+            .maybeSingle();
 
-        if (error || !coupon) {
+        if (dbError) {
+            console.error("DB error:", dbError);
+            return new Response(
+                JSON.stringify({ valid: false, message: "Erro ao consultar banco de dados." }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        if (!coupon) {
             return new Response(
                 JSON.stringify({ valid: false, message: "Cupom inválido ou não encontrado." }),
                 { headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
+
+        console.log("Coupon found:", coupon.code);
 
         // Check expiration
         if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
@@ -61,17 +73,18 @@ serve(async (req) => {
             );
         }
 
-        // Check applicable plans (if any specific plans are restricted)
+        // Check applicable plans
         if (plan && coupon.applicable_plans && coupon.applicable_plans.length > 0) {
             if (!coupon.applicable_plans.includes(plan)) {
                 return new Response(
-                    JSON.stringify({ valid: false, message: "Este cupom não é válido para o plano selecionado." }),
+                    JSON.stringify({ valid: false, message: "Cupom não válido para o plano selecionado." }),
                     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
                 );
             }
         }
 
-        // Return valid coupon details
+        console.log("Coupon valid!");
+
         return new Response(
             JSON.stringify({
                 valid: true,
@@ -79,19 +92,18 @@ serve(async (req) => {
                 discount_type: coupon.discount_type,
                 discount_value: coupon.discount_value,
                 description: coupon.description,
-                min_amount: coupon.min_amount,
+                applicable_plans: coupon.applicable_plans || [],
+                min_amount: coupon.min_amount || 0,
                 message: "Cupom aplicado com sucesso!"
             }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
 
     } catch (error: any) {
+        console.error("Error in check-coupon:", error);
         return new Response(
-            JSON.stringify({ valid: false, message: error.message || "Erro ao validar cupom" }),
-            {
-                status: 400,
-                headers: { ...corsHeaders, "Content-Type": "application/json" }
-            }
+            JSON.stringify({ valid: false, message: error.message || "Erro interno" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     }
 });

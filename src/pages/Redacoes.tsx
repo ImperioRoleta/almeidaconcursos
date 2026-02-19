@@ -14,12 +14,12 @@ import ReactMarkdown from "react-markdown";
 import {
   PenLine, Send, Clock, CheckCircle, Loader2, BookOpen,
   ChevronRight, ArrowLeft, Sparkles, FileText, Star, Calendar,
-  Trophy, Target, TrendingUp, Award,
+  Trophy, Target, TrendingUp, Award, User,
 } from "lucide-react";
 
 interface EssayTheme {
   id: string; title: string; description: string; motivating_texts: any[];
-  genre: string; active_date: string; created_by: string;
+  genre: string; active_date: string | null; created_by: string; created_at: string;
 }
 interface Essay {
   id: string; theme_id: string | null; title: string; content: string;
@@ -29,9 +29,10 @@ type View = "home" | "write" | "history" | "detail" | "correction";
 
 export default function Redacoes() {
   const { user } = useAuth();
-  const { isActive } = useSubscription();
+  const { isActive, loading: subLoading } = useSubscription();
   const [view, setView] = useState<View>("home");
-  const [themes, setThemes] = useState<EssayTheme[]>([]);
+  const [dailyThemes, setDailyThemes] = useState<EssayTheme[]>([]);
+  const [personalThemes, setPersonalThemes] = useState<EssayTheme[]>([]);
   const [essays, setEssays] = useState<Essay[]>([]);
   const [selectedTheme, setSelectedTheme] = useState<EssayTheme | null>(null);
   const [selectedEssay, setSelectedEssay] = useState<Essay | null>(null);
@@ -39,22 +40,43 @@ export default function Redacoes() {
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [correcting, setCorrecting] = useState(false);
+  const [generatingTheme, setGeneratingTheme] = useState(false);
   const [featureEnabled, setFeatureEnabled] = useState(true);
   const [monthlyCount, setMonthlyCount] = useState(0);
 
   const FREE_MONTHLY_LIMIT = 1;
-  const monthlyLimitReached = !isActive && monthlyCount >= FREE_MONTHLY_LIMIT;
+  const monthlyLimitReached = !subLoading && !isActive && monthlyCount >= FREE_MONTHLY_LIMIT;
 
   useEffect(() => { loadData(); }, [user]);
 
   const loadData = async () => {
     if (!user) return;
-    const [themesRes, essaysRes, settingsRes] = await Promise.all([
-      supabase.from("essay_themes").select("*").order("active_date", { ascending: false }).limit(10),
+    const [publicThemesRes, personalThemesRes, essaysRes, settingsRes] = await Promise.all([
+      // Public themes (Daily) - limit 10
+      supabase.from("essay_themes")
+        .select("*")
+        .not("active_date", "is", null)
+        .order("active_date", { ascending: false })
+        .limit(10),
+      // Personal themes - limit 10
+      supabase.from("essay_themes")
+        .select("*")
+        .eq("created_by", user.id)
+        .order("created_at", { ascending: false })
+        .limit(20),
       supabase.from("essays").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("platform_settings").select("*").eq("key", "essays_enabled").single(),
     ]);
-    setThemes((themesRes.data as any[]) ?? []);
+
+    const publicThemes = (publicThemesRes.data as any[]) ?? [];
+    const personalThemesRaw = (personalThemesRes.data as any[]) ?? [];
+
+    // Filter personal themes (expire after 2 hours)
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const personalThemes = personalThemesRaw.filter((t: any) => new Date(t.created_at) > twoHoursAgo);
+
+    setDailyThemes(publicThemes);
+    setPersonalThemes(personalThemes);
     setEssays((essaysRes.data as any[]) ?? []);
     if (settingsRes.data) setFeatureEnabled(settingsRes.data.value === "true");
 
@@ -102,15 +124,36 @@ export default function Redacoes() {
   const correctEssay = async (essayId: string, essayContent: string, essayTitle: string) => {
     setCorrecting(true);
     try {
+      console.log("Solicitando correção para:", essayId);
       const { data, error } = await supabase.functions.invoke("ai-correct-essay", {
         body: { essay_id: essayId, content: essayContent, title: essayTitle, theme: selectedTheme?.title },
       });
-      if (error) throw error;
-      toast.success("Correção concluída!");
-      loadData();
-      // Check essay achievements
+
+      if (error) {
+        console.error("Supabase Invoke Error:", error);
+        throw error;
+      }
+
+      if (data?.error) {
+        console.error("Function Logic Error:", data.error);
+        throw new Error(data.error);
+      }
+
+      toast.success("Correção concluída com sucesso!");
+      await loadData(); // Reload to get the update
+
+      // Auto-select the corrected essay to show result
+      const updatedEssay = essays.find(e => e.id === essayId);
+      if (updatedEssay) {
+        setSelectedEssay(updatedEssay);
+        setView("correction");
+      }
+
       checkEssayAchievements();
-    } catch { toast.error("Erro na correção automática. Tente novamente mais tarde."); }
+    } catch (e: any) {
+      console.error("Erro na correção:", e);
+      toast.error(`Erro na correção: ${e.message || "Tente novamente mais tarde."}`);
+    }
     setCorrecting(false);
   };
 
@@ -143,11 +186,50 @@ export default function Redacoes() {
     } catch (e) { console.error("Achievement check error:", e); }
   };
 
+  const handleGenerateTheme = async () => {
+    if (!user) return;
+    if (!isActive && monthlyCount >= FREE_MONTHLY_LIMIT) {
+      toast.error("Limite gratuito atingido! Assine o Premium para gerar mais temas.");
+      return;
+    }
+
+    setGeneratingTheme(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-generate-theme", {
+        body: { use_personal: true, user_id: user.id }
+      });
+
+      if (error) {
+        console.error("Supabase Function Error:", error);
+        throw error;
+      }
+      if (data?.error) throw new Error(data.error);
+
+      toast.success("Tema gerado com sucesso!");
+      if (data.theme) {
+        // Check if theme already exists in state to avoid duplicates
+        setPersonalThemes(prev => {
+          if (prev.some(t => t.id === data.theme.id)) return prev;
+          return [data.theme, ...prev];
+        });
+        // Optional: Auto-start writing or just show in list
+        // startWriting(data.theme); 
+      }
+    } catch (e: any) {
+      console.error("Erro ao gerar tema:", e);
+      let msg = "Não foi possível gerar um tema no momento.";
+      if (e.message?.includes("429")) msg = "Muitas solicitações. Tente novamente em instantes.";
+      toast.error(msg);
+    }
+    setGeneratingTheme(false);
+  };
+
   const viewEssay = (essay: Essay) => { setSelectedEssay(essay); setView(essay.correction ? "correction" : "detail"); };
   const retryCorrection = async (essay: Essay) => { setCorrecting(true); await correctEssay(essay.id, essay.content, essay.title); setCorrecting(false); };
 
   const wordCount = content.split(/\s+/).filter(Boolean).length;
-  const todayTheme = themes.find(t => t.active_date === new Date().toISOString().split("T")[0]);
+  // Today's theme is the first one in the daily list matching today's date, or just the first one if we want to feature the latest
+  const todayTheme = dailyThemes.length > 0 ? dailyThemes[0] : null;
 
   // Stats
   const correctedEssays = essays.filter(e => e.status === "corrected");
@@ -172,7 +254,9 @@ export default function Redacoes() {
         {selectedTheme && (
           <Card className="glass-card border-primary/20">
             <CardContent className="p-4">
-              <Badge className="mb-2 bg-primary/10 text-primary text-[10px]">TEMA DO DIA</Badge>
+              <Badge className={`mb-2 text-[10px] ${selectedTheme.active_date ? "bg-primary/10 text-primary" : "bg-purple-500/10 text-purple-500"}`}>
+                {selectedTheme.active_date ? "TEMA DO DIA" : "TEMA PERSONALIZADO"}
+              </Badge>
               <h3 className="font-heading font-bold">{selectedTheme.title}</h3>
               <p className="text-sm text-muted-foreground mt-1">{selectedTheme.description}</p>
               {selectedTheme.motivating_texts && (selectedTheme.motivating_texts as any[]).length > 0 && (
@@ -259,27 +343,60 @@ export default function Redacoes() {
           </Card>
         )}
 
-        {correction && (
-          <Card className="glass-card">
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> Correção por IA</CardTitle></CardHeader>
-            <CardContent className="prose prose-invert prose-sm max-w-none">
-              <ReactMarkdown>{typeof correction === "string" ? correction : correction.feedback || JSON.stringify(correction)}</ReactMarkdown>
-            </CardContent>
-          </Card>
-        )}
+        {
+          correction && (
+            <Card className="glass-card overflow-hidden">
+              <CardHeader className="bg-muted/40 pb-4">
+                <CardTitle className="text-base flex items-center gap-2">
+                  {correction.corrected_by === "teacher" ? (
+                    <>
+                      <User className="w-4 h-4 text-primary" />
+                      Correção por: <span className="text-primary">{correction.teacher_name || "Professor"}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 text-purple-500" />
+                      Correção por: <span className="text-purple-500">Inteligência Artificial</span>
+                    </>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="prose prose-invert prose-sm max-w-none p-6">
+                {correction.general_comments && (
+                  <div className="mb-4 bg-primary/5 p-4 rounded-lg border border-primary/10">
+                    <h4 className="text-sm font-bold flex items-center gap-2 mb-2 text-primary">
+                      <CheckCircle className="w-4 h-4" /> Comentários Gerais
+                    </h4>
+                    <p className="text-foreground whitespace-pre-line">{correction.general_comments}</p>
+                  </div>
+                )}
+
+                {/* Fallback for older AI corrections or detailed feedback */}
+                {(typeof correction === "string" || correction.feedback) && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-bold mb-2">Análise Detalhada</h4>
+                    <ReactMarkdown>{typeof correction === "string" ? correction : correction.feedback}</ReactMarkdown>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )
+        }
 
         <Card className="glass-card">
           <CardHeader><CardTitle className="text-base">Sua Redação</CardTitle></CardHeader>
           <CardContent><p className="whitespace-pre-wrap text-sm text-muted-foreground leading-relaxed">{selectedEssay.content}</p></CardContent>
         </Card>
 
-        {selectedEssay.status === "submitted" && (
-          <Button onClick={() => retryCorrection(selectedEssay)} disabled={correcting} variant="outline">
-            {correcting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-            Solicitar Correção
-          </Button>
-        )}
-      </div>
+        {
+          selectedEssay.status === "submitted" && (
+            <Button onClick={() => retryCorrection(selectedEssay)} disabled={correcting} variant="outline">
+              {correcting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+              Solicitar Correção
+            </Button>
+          )
+        }
+      </div >
     );
   }
 
@@ -291,9 +408,15 @@ export default function Redacoes() {
           <h1 className="font-heading text-2xl font-bold flex items-center gap-2"><PenLine className="w-6 h-6 text-primary" /> Redações</h1>
           <p className="text-muted-foreground text-sm">Escreva, envie e receba correções por IA</p>
         </div>
-        <Button onClick={() => startWriting()} disabled={monthlyLimitReached} className="gradient-primary text-primary-foreground">
-          <PenLine className="w-4 h-4 mr-2" /> Nova Redação
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleGenerateTheme} disabled={generatingTheme || monthlyLimitReached} variant="outline" className="border-primary/50 text-primary hover:bg-primary/10">
+            {generatingTheme ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+            Gerar Tema com IA
+          </Button>
+          <Button onClick={() => startWriting()} disabled={monthlyLimitReached} className="gradient-primary text-primary-foreground">
+            <PenLine className="w-4 h-4 mr-2" /> Nova Redação
+          </Button>
+        </div>
       </div>
 
       {/* Monthly limit banner for free users */}
@@ -348,45 +471,87 @@ export default function Redacoes() {
         </div>
       )}
 
-      {/* Today's theme */}
+      {/* Today's theme Hero */}
       {todayTheme && (
-        <Card className="glass-card border-primary/20 overflow-hidden relative">
-          <div className="absolute top-0 left-0 w-full h-1 gradient-primary" />
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  <Badge className="bg-primary/10 text-primary text-[10px]">TEMA DO DIA</Badge>
+        <section>
+          <h2 className="font-heading font-semibold text-base mb-3 flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-primary" /> Tema em Destaque
+          </h2>
+          <Card className="glass-card border-primary/20 overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-1 gradient-primary" />
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge className="bg-primary/10 text-primary text-[10px]">TEMA DO DIA</Badge>
+                    <span className="text-[10px] text-muted-foreground">{new Date(todayTheme.active_date).toLocaleDateString()}</span>
+                  </div>
+                  <h3 className="font-heading font-bold text-lg md:text-xl">{todayTheme.title}</h3>
+                  <p className="text-sm text-muted-foreground mt-2 line-clamp-2 md:line-clamp-none">{todayTheme.description}</p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px]">{todayTheme.genre}</Badge>
+                  </div>
                 </div>
-                <h3 className="font-heading font-bold text-lg">{todayTheme.title}</h3>
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{todayTheme.description}</p>
+                <Button onClick={() => startWriting(todayTheme)} className="shrink-0 gradient-primary text-primary-foreground shadow-lg hover:shadow-primary/20 transition-all">
+                  Escrever Redação <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
               </div>
-              <Button onClick={() => startWriting(todayTheme)} size="sm" className="shrink-0">Escrever <ChevronRight className="w-4 h-4 ml-1" /></Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </section>
       )}
 
-      {/* Recent themes */}
-      {themes.length > 0 && (
-        <div>
-          <h2 className="font-heading font-semibold text-base mb-3">Temas disponíveis</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {themes.filter(t => t.id !== todayTheme?.id).slice(0, 4).map(theme => (
+      {/* Personal Generated Themes */}
+      {personalThemes.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-heading font-semibold text-base flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-500" /> Seus Temas Gerados
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {personalThemes.map(theme => (
+              <Card key={theme.id} className="glass-card cursor-pointer hover:border-purple-500/30 transition-all group" onClick={() => startWriting(theme)}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline" className="text-[9px] bg-purple-500/10 text-purple-500 border-purple-500/20">Exclusivo</Badge>
+                    <span className="text-[10px] text-muted-foreground ml-auto">
+                      {(() => {
+                        const created = new Date(theme.created_at);
+                        const expires = new Date(created.getTime() + 2 * 60 * 60 * 1000);
+                        const diff = Math.floor((expires.getTime() - Date.now()) / 60000);
+                        return diff > 0 ? `Expira em ${diff} min` : "Expirando...";
+                      })()}
+                    </span>
+                  </div>
+                  <h3 className="font-medium text-sm line-clamp-2 group-hover:text-purple-400 transition-colors">{theme.title}</h3>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Theme Bank (History of Daily Themes) */}
+      {dailyThemes.length > 1 && (
+        <section>
+          <h2 className="font-heading font-semibold text-base mb-3 flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-muted-foreground" /> Banco de Temas
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {dailyThemes.filter(t => t.id !== todayTheme?.id).map(theme => (
               <Card key={theme.id} className="glass-card cursor-pointer hover:border-primary/30 transition-colors" onClick={() => startWriting(theme)}>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-1">
-                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
                     <span className="text-[10px] text-muted-foreground">{theme.genre}</span>
-                    <Badge variant="outline" className="text-[9px] ml-auto">{theme.created_by === "ai" ? "IA" : "Admin"}</Badge>
+                    <Badge variant="outline" className="text-[9px] ml-auto">IA Diária</Badge>
                   </div>
                   <p className="font-medium text-sm line-clamp-2">{theme.title}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Essay history */}

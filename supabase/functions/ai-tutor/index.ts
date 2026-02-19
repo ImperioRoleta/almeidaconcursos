@@ -3,8 +3,9 @@
 // This enables autocomplete, go to definition, etc.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,8 +16,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -141,43 +142,92 @@ Responda em português brasileiro. Use formatação markdown. Seja direto, objet
 - Índice de prontidão estimado (0-100%)`;
     }
 
-    const aiMessages = [
-      { role: "system", content: systemPrompt },
-      ...(messages || [{ role: "user", content: action === "suggest_next" ? "Qual meu próximo passo de estudo?" : action === "explain_errors" ? "Explique meus erros recentes" : action === "generate_questions" ? "Gere questões personalizadas para mim" : "Analise meu desempenho completo" }]),
-    ];
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Map OpenAI-style messages to Gemini contents
+    const contents = (messages || []).map((m: any) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }]
+    }));
+
+    // If no history, add the action prompt
+    if (contents.length === 0) {
+      const defaultPrompt = action === "suggest_next" ? "Qual meu próximo passo de estudo?" : action === "explain_errors" ? "Explique meus erros recentes" : action === "generate_questions" ? "Gere questões personalizadas para mim" : "Analise meu desempenho completo";
+      contents.push({
+        role: "user",
+        parts: [{ text: defaultPrompt }]
+      });
+    }
+
+    const response = await fetch(geminiUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: aiMessages,
-        stream: true,
+        contents: [
+          { role: "user", parts: [{ text: systemPrompt }] },
+          { role: "model", parts: [{ text: "Entendido, estou pronto para ser seu tutor." }] },
+          ...contents
+        ],
+        generationConfig: {
+          temperature: 0.7,
+        }
       }),
     });
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "Erro no serviço de IA" }), {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMsg = errorData.error?.message || response.statusText || "Erro desconhecido";
+      console.error("Gemini API error details (Tutor):", JSON.stringify(errorData));
+      return new Response(JSON.stringify({ error: `Erro no serviço de IA (${response.status}): ${errorMsg}` }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(response.body, {
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+
+    (async () => {
+      if (!reader) {
+        await writer.close();
+        return;
+      }
+      try {
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const json = JSON.parse(line.slice(6));
+                const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (content) {
+                  const sseData = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+                  await writer.write(encoder.encode(sseData));
+                }
+              } catch (e) {
+                // Ignore parse errors
+              }
+            }
+          }
+        }
+        await writer.write(encoder.encode("data: [DONE]\n\n"));
+      } catch (e) {
+        console.error("Stream transformation error (Tutor):", e);
+      } finally {
+        await writer.close();
+      }
+    })();
+
+    return new Response(readable, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {

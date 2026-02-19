@@ -10,9 +10,11 @@ type UpgradePromptProps = {
 };
 
 export default function UpgradePrompt({ variant = "banner", context }: UpgradePromptProps) {
-  const { isActive } = useSubscription();
+  const { isActive, loading } = useSubscription();
   const navigate = useNavigate();
 
+  // Don't render anything while subscription is loading to prevent flash of free content
+  if (loading) return null;
   if (isActive) return null;
 
   if (variant === "compact") {

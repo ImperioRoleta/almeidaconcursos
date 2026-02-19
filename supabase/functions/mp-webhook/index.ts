@@ -15,12 +15,25 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const MP_ACCESS_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
-    if (!MP_ACCESS_TOKEN) throw new Error("MERCADOPAGO_ACCESS_TOKEN not configured");
-
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+    // Try to get token from platform_settings (Admin Panel) first
+    const { data: dbSetting } = await supabase
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "mp_access_token")
+      .single();
+
+    let MP_ACCESS_TOKEN = dbSetting?.value;
+
+    // Fallback to Env Var
+    if (!MP_ACCESS_TOKEN) {
+      MP_ACCESS_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
+    }
+
+    if (!MP_ACCESS_TOKEN) throw new Error("MERCADOPAGO_ACCESS_TOKEN not configured");
 
     const body = await req.json();
     console.log("Webhook received:", JSON.stringify(body));

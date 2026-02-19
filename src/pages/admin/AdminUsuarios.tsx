@@ -8,12 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Users, Shield, Search, Ban, CheckCircle, Crown, User, Gift, Clock, ShieldCheck, ShieldOff, AlertTriangle, RotateCcw, TrendingUp, BookOpen, Target, PenLine, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Users, Shield, Search, Ban, CheckCircle, Crown, User, Gift, Clock, ShieldCheck, ShieldOff, AlertTriangle, RotateCcw, TrendingUp, BookOpen, Target, PenLine, Loader2, LayoutGrid, List, Filter, MoreHorizontal, Mail, Calendar, Edit3, Trash2, Zap, Brain, X, GraduationCap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 
 type MergedUser = {
   id: string;
@@ -31,18 +34,23 @@ export default function AdminUsuarios() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [filterTab, setFilterTab] = useState("all");
 
   // Dialogs
   const [showGrantDialog, setShowGrantDialog] = useState(false);
   const [showTrialDialog, setShowTrialDialog] = useState(false);
   const [showAdminConfirm, setShowAdminConfirm] = useState<{ userId: string; name: string; isAdmin: boolean } | null>(null);
+  const [showTeacherConfirm, setShowTeacherConfirm] = useState<{ userId: string; name: string; isTeacher: boolean } | null>(null);
   const [showBlockConfirm, setShowBlockConfirm] = useState<{ userId: string; name: string; isBlocked: boolean } | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState<{ userId: string; name: string } | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState<{ userId: string; name: string; roles: string[] } | null>(null);
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState<{ userId: string; name: string } | null>(null);
 
   const [grantPlan, setGrantPlan] = useState("premium_mensal");
   const [grantDays, setGrantDays] = useState("30");
   const [trialDays, setTrialDays] = useState("7");
   const [processing, setProcessing] = useState(false);
+  const [editName, setEditName] = useState("");
 
   // Performance View State
   const [showPerformance, setShowPerformance] = useState<{ userId: string; name: string } | null>(null);
@@ -53,13 +61,14 @@ export default function AdminUsuarios() {
     setLoadingStats(true);
     setUserStats(null);
     try {
-      const [progressRes, lessonsRes, essayRes, simRes, answersRes, sessionsRes] = await Promise.all([
+      const [progressRes, lessonsRes, essayRes, simRes, answersRes, sessionsRes, flashcardsRes] = await Promise.all([
         supabase.from("user_progress").select("lesson_id").eq("user_id", userId).eq("completed", true),
         supabase.from("lessons").select("id", { count: "exact", head: true }),
         supabase.from("essays").select("id, title, score, created_at").eq("user_id", userId).order("created_at", { ascending: false }),
         supabase.from("simulation_results").select("*, simulation:simulations(title)").eq("user_id", userId).order("created_at", { ascending: false }),
         supabase.from("user_answers").select("is_correct").eq("user_id", userId),
         supabase.from("study_sessions").select("duration_seconds").eq("user_id", userId),
+        supabase.from("flashcards").select("id, ease_factor, repetitions, next_review_at").eq("user_id", userId),
       ]);
 
       const completedCount = progressRes.data?.length || 0;
@@ -74,6 +83,9 @@ export default function AdminUsuarios() {
       const totalSeconds = (sessionsRes.data || []).reduce((acc: number, curr: any) => acc + (curr.duration_seconds || 0), 0);
       const studyHours = totalSeconds / 3600;
 
+      const flashcards = flashcardsRes.data || [];
+      const avgEase = flashcards.length > 0 ? (flashcards.reduce((acc: number, curr: any) => acc + (curr.ease_factor || 0), 0) / flashcards.length).toFixed(2) : "0";
+
       setUserStats({
         completedLessons: completedCount,
         totalLessons,
@@ -82,6 +94,9 @@ export default function AdminUsuarios() {
         simulations,
         avgAnswerAccuracy: avgAccuracy,
         studyHours,
+        totalFlashcards: flashcards.length,
+        avgEaseFactor: avgEase,
+        flashcardsReviewed: flashcards.filter(f => (f.repetitions || 0) > 0).length,
       });
     } catch (error) {
       console.error("Error fetching user stats:", error);
@@ -141,9 +156,29 @@ export default function AdminUsuarios() {
     setProcessing(false);
     if (error) { toast.error("Erro: " + error.message); return; }
     const result = data as any;
-    if (result?.success) {
+    if (result && result.success) {
       toast.success(result.action === "added" ? "Admin concedido!" : "Admin removido!");
       setShowAdminConfirm(null);
+      fetchUsers();
+    } else {
+      toast.error(result?.error || "Erro desconhecido");
+    }
+  };
+
+  const handleToggleTeacher = async () => {
+    if (!adminUser || !showTeacherConfirm) return;
+    setProcessing(true);
+    const { data, error } = await supabase.rpc("admin_toggle_role", {
+      _admin_user_id: adminUser.id,
+      _target_user_id: showTeacherConfirm.userId,
+      _role: "teacher",
+    });
+    setProcessing(false);
+    if (error) { toast.error("Erro: " + error.message); return; }
+    const result = data as any;
+    if (result && result.success) {
+      toast.success(result.action === "added" ? "Professor concedido!" : "Professor removido!");
+      setShowTeacherConfirm(null);
       fetchUsers();
     } else {
       toast.error(result?.error || "Erro desconhecido");
@@ -162,7 +197,7 @@ export default function AdminUsuarios() {
     setProcessing(false);
     if (error) { toast.error("Erro: " + error.message); return; }
     const result = data as any;
-    if (result?.success) {
+    if (result && result.success) {
       toast.success(result.blocked ? "Usuário bloqueado!" : "Usuário desbloqueado!");
       setShowBlockConfirm(null);
       fetchUsers();
@@ -184,7 +219,7 @@ export default function AdminUsuarios() {
     setProcessing(false);
     if (error) { toast.error("Erro: " + error.message); return; }
     const result = data as any;
-    if (result?.success) {
+    if (result && result.success) {
       toast.success(`Assinatura concedida para ${result.updated} usuário(s)!`);
       setShowGrantDialog(false);
       setSelectedUsers(new Set());
@@ -206,7 +241,7 @@ export default function AdminUsuarios() {
     setProcessing(false);
     if (error) { toast.error("Erro: " + error.message); return; }
     const result = data as any;
-    if (result?.success) {
+    if (result && result.success) {
       toast.success(`Premium Teste concedido para ${result.updated} usuário(s)!`);
       setShowTrialDialog(false);
       setSelectedUsers(new Set());
@@ -227,9 +262,39 @@ export default function AdminUsuarios() {
     setProcessing(false);
     if (error) { toast.error("Erro: " + error.message); return; }
     const result = data as any;
-    if (result?.success) {
+    if (result && result.success) {
       toast.success(`Progresso de "${showResetConfirm.name}" resetado com sucesso!`);
       setShowResetConfirm(null);
+      fetchUsers();
+    } else {
+      toast.error(result?.error || "Erro desconhecido");
+    }
+  };
+
+  // --- Bulk remove subscription ---
+  const handleRemoveSubscription = async () => {
+    if (!adminUser) return;
+
+    // Determine target IDs (either from individual confirm or bulk selection)
+    const targetIds = showRevokeConfirm?.userId
+      ? [showRevokeConfirm.userId]
+      : Array.from(selectedUsers);
+
+    if (targetIds.length === 0) return;
+
+    setProcessing(true);
+    const { data, error } = await supabase.rpc("admin_remove_subscription", {
+      _admin_user_id: adminUser.id,
+      _target_user_ids: targetIds,
+    });
+    setProcessing(false);
+
+    if (error) { toast.error("Erro: " + error.message); return; }
+    const result = data as any;
+    if (result && result.success) {
+      toast.success(`Assinatura removida com sucesso!`);
+      setShowRevokeConfirm(null);
+      setSelectedUsers(new Set());
       fetchUsers();
     } else {
       toast.error(result?.error || "Erro desconhecido");
@@ -249,9 +314,41 @@ export default function AdminUsuarios() {
     });
   };
 
+  // --- Update Profile ---
+  const handleUpdateProfile = async () => {
+    if (!adminUser || !showEditDialog) return;
+    setProcessing(true);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ name: editName })
+      .eq("user_id", showEditDialog.userId);
+
+    if (error) {
+      toast.error("Erro ao atualizar nome: " + error.message);
+    } else {
+      toast.success("Perfil atualizado com sucesso!");
+      setShowEditDialog(null);
+      fetchUsers();
+    }
+    setProcessing(false);
+  };
+
   const filtered = users.filter(u => {
     const q = search.toLowerCase();
-    return !q || (u.name || "").toLowerCase().includes(q) || (u.user_id || "").toLowerCase().includes(q);
+    const nameMatch = !q || (u.name || "").toLowerCase().includes(q) || (u.user_id || "").toLowerCase().includes(q);
+
+    if (!nameMatch) return false;
+
+    if (filterTab === "all") return true;
+    if (filterTab === "admins") return u.roles?.some(r => r.role === "admin");
+    if (filterTab === "teachers") return u.roles?.some(r => r.role === "teacher");
+    if (filterTab === "premium") return u.subscription?.plan?.startsWith("premium") && u.subscription?.plan !== "premium_teste";
+    if (filterTab === "trial") return u.subscription?.plan === "premium_teste";
+    if (filterTab === "blocked") return u.subscription?.status === "blocked";
+    if (filterTab === "students") return !u.roles?.some(r => r.role === "admin");
+
+    return true;
   });
 
   const selectAll = () => {
@@ -281,139 +378,245 @@ export default function AdminUsuarios() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-bold flex items-center gap-2">
-            <Users className="w-6 h-6 text-primary" /> Gestão de Usuários
-          </h1>
-          <p className="text-muted-foreground text-sm">{users.length} usuários cadastrados</p>
+      {/* Header and Controls */}
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="font-heading text-3xl font-bold flex items-center gap-3">
+              <span className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Users className="w-7 h-7 text-primary" />
+              </span>
+              Gestão de Usuários
+            </h1>
+            <p className="text-muted-foreground mt-1">{users.length} usuários cadastrados no total</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {selectedUsers.size > 0 && (
+              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-2 mr-4">
+                <Badge variant="secondary" className="h-9 px-4 font-bold">
+                  {selectedUsers.size} selecionado(s)
+                </Badge>
+                <Button size="sm" className="gradient-primary text-primary-foreground gap-2 h-9 rounded-xl" onClick={() => setShowGrantDialog(true)}>
+                  <Crown className="w-4 h-4" /> Assinatura
+                </Button>
+                <Button size="sm" variant="outline" className="gap-2 h-9 rounded-xl border-accent/30 text-accent hover:bg-accent/5" onClick={() => setShowTrialDialog(true)}>
+                  <Gift className="w-4 h-4" /> Trial
+                </Button>
+                <Button size="sm" variant="outline" className="gap-2 h-9 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/5" onClick={() => setShowRevokeConfirm({ userId: "", name: `${selectedUsers.size} usuários` })}>
+                  <ShieldOff className="w-4 h-4" /> Revogar
+                </Button>
+              </motion.div>
+            )}
+            <Button variant="outline" onClick={fetchUsers} disabled={loading} className="gap-2 h-9 rounded-xl">
+              <RotateCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {selectedUsers.size > 0 && (
-            <>
-              <Badge className="bg-primary/10 text-primary border-primary/20">
-                {selectedUsers.size} selecionado(s)
-              </Badge>
-              <Button size="sm" className="gradient-primary text-primary-foreground gap-1" onClick={() => setShowGrantDialog(true)}>
-                <Crown className="w-4 h-4" /> Dar Assinatura
-              </Button>
-              <Button size="sm" variant="outline" className="gap-1 border-[hsl(280,70%,55%)]/30 text-[hsl(280,70%,55%)]" onClick={() => setShowTrialDialog(true)}>
-                <Gift className="w-4 h-4" /> Premium Teste
-              </Button>
-            </>
-          )}
+
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar por nome, email ou ID..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-11 h-12 bg-card/50 border-primary/10 rounded-2xl"
+            />
+          </div>
+          <Tabs value={filterTab} onValueChange={setFilterTab} className="w-full md:w-auto">
+            <TabsList className="bg-card/50 border border-primary/10 p-1 h-12 rounded-2xl">
+              <TabsTrigger value="all" className="rounded-xl px-4 data-[state=active]:bg-primary data-[state=active]:text-white">Todos</TabsTrigger>
+              <TabsTrigger value="students" className="rounded-xl px-4 data-[state=active]:bg-primary">Alunos</TabsTrigger>
+              <TabsTrigger value="teachers" className="rounded-xl px-4 data-[state=active]:bg-blue-600">Professores</TabsTrigger>
+              <TabsTrigger value="premium" className="rounded-xl px-4 data-[state=active]:bg-accent">Premium</TabsTrigger>
+              <TabsTrigger value="admins" className="rounded-xl px-4 data-[state=active]:bg-purple-600">Admins</TabsTrigger>
+              <TabsTrigger value="blocked" className="rounded-xl px-4 data-[state=active]:bg-destructive">Bloqueados</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 
-      {/* Search & Select All */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Buscar por nome ou ID..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+      {/* Select All Bar */}
+      <div className="flex items-center justify-between px-2">
+        <div className="flex items-center gap-2">
+          <Checkbox id="select-all" checked={selectedUsers.size === filtered.length && filtered.length > 0} onCheckedChange={selectAll} />
+          <label htmlFor="select-all" className="text-xs font-bold text-muted-foreground uppercase cursor-pointer">
+            Selecionar Todos ({filtered.length})
+          </label>
         </div>
-        <Button variant="outline" size="sm" onClick={selectAll}>
-          {selectedUsers.size === filtered.length ? "Desmarcar Todos" : "Selecionar Todos"}
-        </Button>
+        <p className="text-[10px] text-muted-foreground font-mono italic">Filtrando por: {filterTab.toUpperCase()}</p>
       </div>
 
       {/* User List */}
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map(u => {
+      <div className="grid grid-cols-1 gap-4">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <p className="text-muted-foreground animate-pulse">Carregando mentes brilhantes...</p>
+          </div>
+        ) : (
+          filtered.map(u => {
             const plan = u.subscription?.plan || "gratuito";
             const status = u.subscription?.status || "active";
             const isAdmin = u.roles?.some(r => r.role === "admin");
+            const isTeacher = u.roles?.some(r => r.role === "teacher");
             const isBlocked = status === "blocked";
             const isSelected = selectedUsers.has(u.user_id);
             const expireDate = u.subscription?.expire_date;
             const daysLeft = expireDate ? Math.max(0, Math.ceil((new Date(expireDate).getTime() - Date.now()) / 86400000)) : null;
 
             return (
-              <Card key={u.id} className={`glass-card transition-all ${isSelected ? "border-primary/40 bg-primary/5" : "hover:border-primary/20"} ${isBlocked ? "opacity-60 border-destructive/30" : ""}`}>
-                <CardContent className="p-4 flex items-center justify-between flex-wrap gap-3">
-                  {/* Left: checkbox + info */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Checkbox checked={isSelected} onCheckedChange={() => toggleSelectUser(u.user_id)} />
-                    <Avatar className="w-9 h-9 shrink-0">
-                      {u.avatar_url ? <AvatarImage src={u.avatar_url} alt={u.name} /> : null}
-                      <AvatarFallback className={isAdmin ? "bg-accent/10 text-accent" : "bg-primary/10 text-primary"}>
-                        {isAdmin ? <Shield className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
+              <motion.div
+                key={u.id}
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`group relative overflow-hidden rounded-3xl border transition-all duration-300 ${isSelected
+                  ? "bg-primary/5 border-primary/40 shadow-lg shadow-primary/10"
+                  : "bg-card/40 border-primary/5 hover:border-primary/20 hover:bg-card/60"
+                  } ${isBlocked ? "opacity-60 grayscale-[0.5]" : ""}`}
+              >
+                <CardContent className="p-5 flex items-center gap-6">
+                  {/* Selection Checkbox */}
+                  <Checkbox checked={isSelected} onCheckedChange={() => toggleSelectUser(u.user_id)} className="rounded-md w-5 h-5" />
+
+                  {/* User Profile Info */}
+                  <div className="flex-1 flex items-center gap-4 min-w-0">
+                    <div className="relative">
+                      <Avatar className="w-14 h-14 rounded-2xl shadow-xl ring-2 ring-background">
+                        <AvatarImage src={u.avatar_url || "/avatar.png"} className="object-cover" />
+                        <AvatarFallback className={isAdmin ? "bg-accent/20 text-accent font-bold" : "bg-primary/10 text-primary font-bold"}>
+                          {u.name?.charAt(0) || <User className="w-5 h-5" />}
+                        </AvatarFallback>
+                      </Avatar>
+                      {isAdmin && (
+                        <div className="absolute -top-1 -right-1 bg-accent text-white p-1 rounded-lg shadow-lg">
+                          <ShieldCheck className="w-3 h-3" />
+                        </div>
+                      )}
+                      {!isAdmin && isTeacher && (
+                        <div className="absolute -top-1 -right-1 bg-blue-500 text-white p-1 rounded-lg shadow-lg">
+                          <GraduationCap className="w-3 h-3" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-heading font-semibold text-sm truncate">{u.name || "Sem nome"}</p>
-                        {isAdmin && <Badge variant="outline" className="text-[10px] border-accent/50 text-accent">Admin</Badge>}
-                        {isBlocked && <Badge variant="destructive" className="text-[10px]">Bloqueado</Badge>}
+                        <h3 className="font-heading font-bold text-base tracking-tight truncate">{u.name || "Membro Sem Nome"}</h3>
+                        {isAdmin && <Badge className="bg-purple-500/10 text-purple-600 border-purple-500/20 text-[10px] font-bold">ADMIN</Badge>}
+                        {isTeacher && <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 text-[10px] font-bold">PROFESSOR</Badge>}
+                        {u.subscription?.plan === 'premium_teste' && <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[10px] font-bold">TRIAL</Badge>}
                       </div>
-                      <p className="text-[11px] text-muted-foreground truncate font-mono">{u.user_id.slice(0, 16)}...</p>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground font-medium">
+                        <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {(u.user_id || "").slice(0, 8)}...</span>
+                        <span className="flex items-center gap-1 font-mono uppercase tracking-tighter opacity-60">
+                          <Calendar className="w-3 h-3" /> {new Date(u.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Right: badges + actions */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge className={`text-[11px] ${planColors[plan] || planColors.gratuito}`}>
-                      <Crown className="w-3 h-3 mr-1" />
-                      {planLabels[plan] || plan}
+                  {/* Subscription Info */}
+                  <div className="hidden lg:flex flex-col items-end gap-1 px-6 border-x border-primary/5">
+                    <Badge className={`text-[10px] font-black tracking-widest px-3 py-1 border-0 ${planColors[plan] || planColors.gratuito}`}>
+                      {planLabels[plan]?.toUpperCase() || plan.toUpperCase()}
                     </Badge>
-                    {daysLeft !== null && daysLeft > 0 && (
-                      <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> {daysLeft}d
+                    {daysLeft !== null && daysLeft > 0 ? (
+                      <span className="text-[10px] font-bold text-accent flex items-center gap-1">
+                        Restam {daysLeft} dias
                       </span>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter opacity-40 italic">Acesso Bronze</span>
                     )}
+                  </div>
 
-                    {/* Toggle Admin */}
+                  {/* Main Actions */}
+                  <div className="flex items-center gap-2 pr-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      className={`gap-1 h-7 text-xs ${isAdmin ? "border-accent/50 text-accent" : "border-muted-foreground/30"}`}
-                      onClick={() => setShowAdminConfirm({ userId: u.user_id, name: u.name || "Sem nome", isAdmin: !!isAdmin })}
+                      className="h-10 rounded-xl px-4 gap-2 border-primary/20 hover:bg-primary/10 transition-colors"
+                      onClick={() => setShowPerformance({ userId: u.user_id, name: u.name || "Membro" })}
                     >
-                      {isAdmin ? <><ShieldOff className="w-3 h-3" /> Remover Admin</> : <><ShieldCheck className="w-3 h-3" /> Dar Admin</>}
+                      <TrendingUp className="w-4 h-4 text-primary" />
+                      <span className="hidden sm:inline font-bold text-xs">Desempenho</span>
                     </Button>
 
-                    {/* View Performance */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1 h-7 text-xs border-primary/30 text-primary"
-                      onClick={() => setShowPerformance({ userId: u.user_id, name: u.name || "Sem nome" })}
-                    >
-                      <TrendingUp className="w-3 h-3" /> Desempenho
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-muted">
+                          <MoreHorizontal className="w-5 h-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56 glass-card p-2 rounded-2xl border-primary/10">
+                        <DropdownMenuLabel className="text-[10px] uppercase font-bold text-muted-foreground px-2 py-1.5 px-3">Gestão de Perfil</DropdownMenuLabel>
+                        <DropdownMenuItem
+                          className="rounded-xl gap-3 text-sm font-medium py-2.5 px-3"
+                          onClick={() => {
+                            setEditName(u.name || "");
+                            setShowEditDialog({ userId: u.user_id, name: u.name, roles: u.roles.map(r => r.role) });
+                          }}
+                        >
+                          <Edit3 className="w-4 h-4 text-primary" /> Editar Nome
+                        </DropdownMenuItem>
 
-                    {/* Reset Progress */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1 h-7 text-xs border-orange-500/30 text-orange-500"
-                      onClick={() => setShowResetConfirm({ userId: u.user_id, name: u.name || "Sem nome" })}
-                    >
-                      <RotateCcw className="w-3 h-3" /> Resetar
-                    </Button>
+                        <DropdownMenuItem
+                          className={`rounded-xl gap-3 text-sm font-medium py-2.5 px-3 ${isAdmin ? "text-destructive" : "text-purple-600"}`}
+                          onClick={() => setShowAdminConfirm({ userId: u.user_id, name: u.name || "Membro", isAdmin: !!isAdmin })}
+                        >
+                          {isAdmin ? <ShieldOff className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                          {isAdmin ? "Remover de Admin" : "Tornar Admin"}
+                        </DropdownMenuItem>
 
-                    {/* Block/Unblock */}
-                    <Button
-                      variant={isBlocked ? "outline" : "destructive"}
-                      size="sm"
-                      className="gap-1 h-7 text-xs"
-                      onClick={() => setShowBlockConfirm({ userId: u.user_id, name: u.name || "Sem nome", isBlocked })}
-                    >
-                      {isBlocked ? <><CheckCircle className="w-3 h-3" /> Desbloquear</> : <><Ban className="w-3 h-3" /> Bloquear</>}
-                    </Button>
+                        <DropdownMenuItem
+                          className={`rounded-xl gap-3 text-sm font-medium py-2.5 px-3 ${isTeacher ? "text-destructive" : "text-blue-600"}`}
+                          onClick={() => setShowTeacherConfirm({ userId: u.user_id, name: u.name || "Membro", isTeacher: !!isTeacher })}
+                        >
+                          {isTeacher ? <ShieldOff className="w-4 h-4" /> : <GraduationCap className="w-4 h-4" />}
+                          {isTeacher ? "Remover de Professor" : "Tornar Professor"}
+                        </DropdownMenuItem>
+
+                        <DropdownMenuSeparator className="bg-primary/5" />
+
+                        <DropdownMenuLabel className="text-[10px] uppercase font-bold text-muted-foreground px-2 py-1.5 px-3">Dados & Segurança</DropdownMenuLabel>
+                        <DropdownMenuItem
+                          className="rounded-xl gap-3 text-sm font-medium py-2.5 px-3 text-orange-500"
+                          onClick={() => setShowResetConfirm({ userId: u.user_id, name: u.name || "Membro" })}
+                        >
+                          <RotateCcw className="w-4 h-4" /> Resetar Progresso
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="rounded-xl gap-3 text-sm font-medium py-2.5 px-3 text-destructive"
+                          onClick={() => setShowRevokeConfirm({ userId: u.user_id, name: u.name || "Membro" })}
+                        >
+                          <ShieldOff className="w-4 h-4" /> Remover Assinatura
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className={`rounded-xl gap-3 text-sm font-medium py-2.5 px-3 ${isBlocked ? "text-green-500" : "text-destructive"}`}
+                          onClick={() => setShowBlockConfirm({ userId: u.user_id, name: u.name || "Membro", isBlocked })}
+                        >
+                          {isBlocked ? <CheckCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                          {isBlocked ? "Desbloquear" : "Bloquear Usuário"}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardContent>
-              </Card>
+              </motion.div>
             );
-          })}
-          {filtered.length === 0 && <p className="text-muted-foreground text-center py-8">Nenhum usuário encontrado.</p>}
-        </div>
-      )}
+          })
+        )}
+        {!loading && filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+            <div className="w-20 h-20 bg-muted/20 rounded-full flex items-center justify-center">
+              <Search className="w-10 h-10 text-muted-foreground/30" />
+            </div>
+            <p className="text-muted-foreground font-medium">Nenhum usuário encontrado para este filtro.</p>
+          </div>
+        )}
+      </div>
 
       {/* Admin Confirm Dialog */}
       <Dialog open={!!showAdminConfirm} onOpenChange={() => setShowAdminConfirm(null)}>
@@ -438,6 +641,34 @@ export default function AdminUsuarios() {
               className={showAdminConfirm?.isAdmin ? "bg-destructive text-destructive-foreground" : "gradient-primary text-primary-foreground"}
             >
               {processing ? "Processando..." : showAdminConfirm?.isAdmin ? "Remover Admin" : "Conceder Admin"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Teacher Confirm Dialog */}
+      <Dialog open={!!showTeacherConfirm} onOpenChange={() => setShowTeacherConfirm(null)}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-blue-500" />
+              {showTeacherConfirm?.isTeacher ? "Remover Professor" : "Conceder Tutor"}
+            </DialogTitle>
+            <DialogDescription>
+              {showTeacherConfirm?.isTeacher
+                ? `Remover permissões de professor de "${showTeacherConfirm?.name}"?`
+                : `Conceder permissões de professor para "${showTeacherConfirm?.name}"? Este usuário poderá corrigir redações e visualizar alunos.`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="outline" onClick={() => setShowTeacherConfirm(null)}>Cancelar</Button>
+            <Button
+              onClick={handleToggleTeacher}
+              disabled={processing}
+              className={showTeacherConfirm?.isTeacher ? "bg-destructive text-destructive-foreground" : "bg-blue-600 text-white hover:bg-blue-700"}
+            >
+              {processing ? "Processando..." : showTeacherConfirm?.isTeacher ? "Remover Professor" : "Conceder Professor"}
             </Button>
           </div>
         </DialogContent>
@@ -564,119 +795,191 @@ export default function AdminUsuarios() {
         </DialogContent>
       </Dialog>
 
-      {/* Performance View Dialog */}
-      <Dialog open={!!showPerformance} onOpenChange={() => setShowPerformance(null)}>
-        <DialogContent className="bg-card border-border max-w-3xl max-h-[90vh] overflow-y-auto">
+      {/* Edit Profile Dialog */}
+      <Dialog open={!!showEditDialog} onOpenChange={() => setShowEditDialog(null)}>
+        <DialogContent className="glass-card max-w-md border-primary/20 p-8 rounded-[2.5rem]">
           <DialogHeader>
-            <DialogTitle className="font-heading flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" /> Desempenho do Aluno
+            <DialogTitle className="font-heading text-2xl font-bold flex items-center gap-3">
+              <span className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Edit3 className="w-5 h-5 text-primary" />
+              </span>
+              Editar Perfil
             </DialogTitle>
-            <DialogDescription>
-              Análise detalhada de {showPerformance?.name}
+            <DialogDescription className="text-muted-foreground">
+              Altere as informações básicas do membro da comunidade.
             </DialogDescription>
           </DialogHeader>
 
+          <div className="space-y-6 pt-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-widest text-primary ml-1">Nome Completo</Label>
+              <Input
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                className="h-12 border-primary/10 bg-card/50 rounded-xl"
+              />
+            </div>
+
+            <div className="p-4 bg-muted/20 rounded-2xl border border-border/50">
+              <p className="text-[10px] uppercase font-black text-muted-foreground mb-3 tracking-widest">Nível de Acesso em Tempo Real</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {showEditDialog?.roles.includes('admin') ? (
+                    <ShieldCheck className="w-5 h-5 text-purple-500" />
+                  ) : showEditDialog?.roles.includes('teacher') ? (
+                    <GraduationCap className="w-5 h-5 text-blue-500" />
+                  ) : (
+                    <User className="w-5 h-5 text-primary" />
+                  )}
+                  <span className="text-sm font-bold uppercase">
+                    {showEditDialog?.roles.includes('admin') ? "Administrador Elite" : showEditDialog?.roles.includes('teacher') ? "Professor Tutor" : "Membro Aluno"}
+                  </span>
+                </div>
+                <Badge variant="outline" className="border-primary/20 text-xs shadow-sm">Ativo</Badge>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="ghost" className="rounded-xl h-12 px-6" onClick={() => setShowEditDialog(null)}>Cancelar</Button>
+              <Button
+                onClick={handleUpdateProfile}
+                className="gradient-primary text-white rounded-xl h-12 px-8 font-bold shadow-lg shadow-primary/20"
+                disabled={processing}
+              >
+                {processing ? "Salvando..." : "Salvar Alterações"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Performance View Dialog */}
+      <Dialog open={!!showPerformance} onOpenChange={() => setShowPerformance(null)}>
+        <DialogContent className="bg-background/95 backdrop-blur-xl border-primary/10 max-w-4xl max-h-[90vh] overflow-y-auto rounded-[3rem] p-0 overflow-hidden shadow-2xl">
           {loadingStats ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="flex flex-col items-center justify-center py-32 gap-4">
+              <div className="relative">
+                <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                <Brain className="w-6 h-6 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary/40" />
+              </div>
+              <p className="text-muted-foreground font-medium animate-pulse">Sincronizando estatísticas de elite...</p>
             </div>
           ) : !userStats ? (
-            <p className="text-center text-muted-foreground py-8">Dados não disponíveis.</p>
+            <p className="text-center text-muted-foreground py-20">Falha ao carregar o cérebro deste aluno.</p>
           ) : (
-            <div className="space-y-6 mt-4">
-              {/* Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Card className="glass-card bg-primary/5 border-primary/20">
-                  <CardContent className="p-4 text-center">
-                    <BookOpen className="w-5 h-5 text-primary mx-auto mb-2" />
-                    <p className="text-2xl font-bold font-mono">{userStats.completedLessons}</p>
-                    <p className="text-[10px] text-muted-foreground uppercase">Aulas Concluídas</p>
-                  </CardContent>
-                </Card>
-                <Card className="glass-card bg-accent/5 border-accent/20">
-                  <CardContent className="p-4 text-center">
-                    <Target className="w-5 h-5 text-accent mx-auto mb-2" />
-                    <p className="text-2xl font-bold font-mono">{userStats.avgAnswerAccuracy}%</p>
-                    <p className="text-[10px] text-muted-foreground uppercase">Precisão Geral</p>
-                  </CardContent>
-                </Card>
-                <Card className="glass-card bg-[hsl(280,70%,55%)]/5 border-[hsl(280,70%,55%)]/20">
-                  <CardContent className="p-4 text-center">
-                    <PenLine className="w-5 h-5 text-[hsl(280,70%,55%)] mx-auto mb-2" />
-                    <p className="text-2xl font-bold font-mono">{userStats.essaysCount}</p>
-                    <p className="text-[10px] text-muted-foreground uppercase">Redações</p>
-                  </CardContent>
-                </Card>
-                <Card className="glass-card bg-[hsl(25,95%,53%)]/5 border-[hsl(25,95%,53%)]/20">
-                  <CardContent className="p-4 text-center">
-                    <Clock className="w-5 h-5 text-[hsl(25,95%,53%)] mx-auto mb-2" />
-                    <p className="text-2xl font-bold font-mono">{userStats.studyHours.toFixed(1)}h</p>
-                    <p className="text-[10px] text-muted-foreground uppercase">Tempo de Estudo</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Progresso do Curso</span>
-                  <span className="font-semibold">{Math.round((userStats.completedLessons / Math.max(userStats.totalLessons, 1)) * 100)}%</span>
+            <div className="flex flex-col">
+              {/* Profile Header in Modal */}
+              <div className="relative p-8 bg-gradient-to-br from-primary/10 via-background to-accent/5 border-b border-primary/5">
+                <div className="flex items-center gap-6">
+                  <Avatar className="w-20 h-20 rounded-3xl shadow-2xl ring-4 ring-background">
+                    <AvatarFallback className="bg-primary/20 text-primary text-2xl font-black">
+                      {showPerformance?.name?.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-1">
+                    <h2 className="text-3xl font-black tracking-tight">{showPerformance?.name}</h2>
+                    <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      <span className="flex items-center gap-1.5 text-primary"><Target className="w-4 h-4" /> Desempenho Pro</span>
+                      <span className="flex items-center gap-1.5"><Brain className="w-4 h-4" /> Aluno Ativo</span>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="icon" className="absolute top-8 right-8 rounded-full border-primary/10" onClick={() => setShowPerformance(null)}>
+                    <X className="w-4 h-4" />
+                  </Button>
                 </div>
-                <Progress value={(userStats.completedLessons / Math.max(userStats.totalLessons, 1)) * 100} className="h-3" />
-                <p className="text-xs text-muted-foreground text-right">{userStats.totalLessons} aulas totais</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Essays */}
-                <Card className="glass-card">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2"><PenLine className="w-4 h-4 text-primary" /> Redações Recentes</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0 space-y-3">
-                    {userStats.essays.length === 0 ? (
-                      <p className="text-sm text-muted-foreground italic">Nenhuma redação enviada.</p>
-                    ) : (
-                      userStats.essays.slice(0, 5).map((e: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0">
-                          <span className="truncate max-w-[150px]">{e.title}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground">{new Date(e.created_at).toLocaleDateString()}</span>
-                            <Badge variant={e.score >= 800 ? "default" : "secondary"} className="h-5 text-[10px]">
-                              {e.score || "Aguardando"}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </CardContent>
-                </Card>
+              <div className="p-8 space-y-8">
+                {/* Summary Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: "Aulas", value: userStats.completedLessons, icon: BookOpen, color: "text-primary", bg: "bg-primary/10" },
+                    { label: "Precisão", value: `${userStats.avgAnswerAccuracy}%`, icon: Target, color: "text-accent", bg: "bg-accent/10" },
+                    { label: "Flashcards", value: userStats.totalFlashcards, icon: Brain, color: "text-purple-500", bg: "bg-purple-500/10" },
+                    { label: "Estudo", value: `${userStats.studyHours.toFixed(1)}h`, icon: Clock, color: "text-orange-500", bg: "bg-orange-500/10" }
+                  ].map((stat, i) => (
+                    <div key={i} className={`p-6 rounded-3xl border border-primary/5 bg-card/40 flex flex-col items-center gap-2 group hover:scale-[1.02] transition-transform`}>
+                      <div className={`w-12 h-12 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center shadow-inner`}>
+                        <stat.icon className="w-6 h-6" />
+                      </div>
+                      <p className="text-2xl font-black font-mono tracking-tighter mt-1">{stat.value}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">{stat.label}</p>
+                    </div>
+                  ))}
+                </div>
 
-                {/* Simulations */}
-                <Card className="glass-card">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2"><Shield className="w-4 h-4 text-accent" /> Últimos Simulados</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0 space-y-3">
-                    {userStats.simulations.length === 0 ? (
-                      <p className="text-sm text-muted-foreground italic">Nenhum simulado realizado.</p>
-                    ) : (
-                      userStats.simulations.slice(0, 5).map((s: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0">
-                          <span className="truncate max-w-[150px]">{s.title || "Simulado"}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground">{new Date(s.created_at).toLocaleDateString()}</span>
-                            <span className={`font-mono font-bold ${s.score >= 70 ? "text-green-500" : "text-[hsl(var(--chart-4))]"}`}>
-                              {s.score}%
-                            </span>
-                          </div>
+                {/* Main Progress Bar */}
+                <div className="space-y-3 p-6 rounded-3xl bg-secondary/20 border border-primary/5">
+                  <div className="flex justify-between items-end">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Progresso Geral</p>
+                      <p className="text-xl font-bold">Domínio do Conteúdo</p>
+                    </div>
+                    <span className="text-3xl font-black text-primary">{Math.round((userStats.completedLessons / Math.max(userStats.totalLessons, 1)) * 100)}%</span>
+                  </div>
+                  <Progress value={(userStats.completedLessons / Math.max(userStats.totalLessons, 1)) * 100} className="h-4 rounded-full bg-primary/10" />
+                  <p className="text-[10px] font-bold text-muted-foreground text-center tracking-widest">{userStats.completedLessons} DE {userStats.totalLessons} AULAS CONCLUÍDAS</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Detailed Flashcard Stats */}
+                  <div className="p-6 rounded-3xl border border-primary/5 bg-card/40 space-y-4">
+                    <h3 className="flex items-center gap-2 font-bold text-lg"><Zap className="w-5 h-5 text-purple-500" /> Memória Espaçada (SRS)</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-muted/30 p-4 rounded-2xl">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Ease Factor Médio</p>
+                        <p className="text-xl font-bold">{userStats.avgEaseFactor}</p>
+                      </div>
+                      <div className="bg-muted/30 p-4 rounded-2xl">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Revisados</p>
+                        <p className="text-xl font-bold">{userStats.flashcardsReviewed}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Essays & Sims */}
+                  <div className="p-6 rounded-3xl border border-primary/5 bg-card/40 space-y-4">
+                    <h3 className="flex items-center gap-2 font-bold text-lg"><PenLine className="w-5 h-5 text-accent" /> Produção & Simulados</h3>
+                    <div className="space-y-2">
+                      {userStats.essays.slice(0, 2).map((e: any, i: number) => (
+                        <div key={i} className="flex justify-between items-center p-3 rounded-xl bg-muted/20 border border-border/50">
+                          <span className="text-xs font-bold truncate max-w-[150px]">{e.title}</span>
+                          <Badge className="bg-accent/10 text-accent font-black border-accent/20">{e.score || 'PEND'}</Badge>
                         </div>
-                      ))
-                    )}
-                  </CardContent>
-                </Card>
+                      ))}
+                      {userStats.essays.length === 0 && <p className="text-xs italic text-muted-foreground py-2 opacity-50">Nenhuma produção recente.</p>}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Revoke Permission/Subscription Dialog */}
+      <Dialog open={!!showRevokeConfirm} onOpenChange={() => setShowRevokeConfirm(null)}>
+        <DialogContent className="glass-card max-w-md border-primary/20">
+          <DialogHeader>
+            <DialogTitle className="font-heading flex items-center gap-2 text-destructive">
+              <ShieldOff className="w-5 h-5" /> Revogar Acesso Premium
+            </DialogTitle>
+            <DialogDescription>
+              Você está prestes a remover o acesso Premium (Assinatura ou Trial) de <span className="font-bold text-foreground">"{showRevokeConfirm?.name}"</span>.
+              O usuário voltará para o plano <span className="font-bold text-primary">Gratuito</span> imediatamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end pt-4">
+            <Button variant="ghost" onClick={() => setShowRevokeConfirm(null)}>Cancelar</Button>
+            <Button
+              onClick={handleRemoveSubscription}
+              disabled={processing}
+              variant="destructive"
+              className="rounded-xl px-6 font-bold shadow-lg shadow-destructive/20"
+            >
+              {processing ? "Processando..." : "Confirmar Revogação"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

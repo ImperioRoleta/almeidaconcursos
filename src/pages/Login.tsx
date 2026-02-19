@@ -31,7 +31,7 @@ export default function Login() {
         .from("subscriptions")
         .select("status")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
 
       if (sub?.status === "blocked") {
         await supabase.auth.signOut();
@@ -60,7 +60,7 @@ export default function Login() {
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-accent/10" />
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-accent/10 rounded-full blur-3xl" />
-        
+
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20 space-y-8">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center shadow-xl shadow-primary/30">

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
@@ -22,8 +23,10 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsuarios from "./pages/admin/AdminUsuarios";
 import AdminConteudo from "./pages/admin/AdminConteudo";
 import AdminQuestoes from "./pages/admin/AdminQuestoes";
+import AdminRedacoes from "./pages/admin/AdminRedacoes";
 import AdminIA from "./pages/admin/AdminIA";
 import AdminAssinaturas from "./pages/admin/AdminAssinaturas";
+
 import AdminPagamentos from "./pages/admin/AdminPagamentos";
 import AdminNotificacoes from "./pages/admin/AdminNotificacoes";
 import AdminLogs from "./pages/admin/AdminLogs";
@@ -33,57 +36,84 @@ import AdminFuncionalidades from "./pages/admin/AdminFuncionalidades";
 import Conquistas from "./pages/Conquistas";
 import Assinatura from "./pages/Assinatura";
 import Diagnostico from "./pages/Diagnostico";
+import CadernoErros from "./pages/CadernoErros";
+import RelatorioMateria from "./pages/RelatorioMateria";
 import NotFound from "./pages/NotFound";
 import AdminGuard from "./components/AdminGuard";
+import TeacherGuard from "./components/TeacherGuard";
+import TeacherDashboard from "./pages/teacher/TeacherDashboard";
+import TeacherRedacoes from "./pages/teacher/TeacherRedacoes";
+import TeacherCorrection from "./pages/teacher/TeacherCorrection";
+import TeacherAlunos from "./pages/teacher/TeacherAlunos";
+import PomodoroTimer from "./components/PomodoroTimer";
+import { useSubscription } from "./hooks/useSubscription";
 
 const queryClient = new QueryClient();
 
+const PomodoroWrapper = () => {
+  const { canUsePomodoro } = useSubscription();
+  return canUsePomodoro ? <PomodoroTimer /> : null;
+};
+
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/cadastro" element={<Cadastro />} />
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <PomodoroWrapper />
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/cadastro" element={<Cadastro />} />
 
-            <Route element={<AppLayout />}>
-              <Route path="/diagnostico" element={<Diagnostico />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/aulas" element={<Aulas />} />
-              <Route path="/redacoes" element={<Redacoes />} />
-              <Route path="/questoes" element={<Questoes />} />
-              <Route path="/simulados" element={<Simulados />} />
-              <Route path="/ia" element={<IAChat />} />
-              <Route path="/plano" element={<PlanoEstudos />} />
-              <Route path="/revisoes" element={<Revisoes />} />
-              <Route path="/ranking" element={<Ranking />} />
-              <Route path="/conquistas" element={<Conquistas />} />
-              <Route path="/assinatura" element={<Assinatura />} />
-              <Route path="/perfil" element={<Perfil />} />
-              <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
-              <Route path="/admin/usuarios" element={<AdminGuard><AdminUsuarios /></AdminGuard>} />
-              <Route path="/admin/conteudo" element={<AdminGuard><AdminConteudo /></AdminGuard>} />
-              <Route path="/admin/questoes" element={<AdminGuard><AdminQuestoes /></AdminGuard>} />
-              <Route path="/admin/ia" element={<AdminGuard><AdminIA /></AdminGuard>} />
-              <Route path="/admin/assinaturas" element={<AdminGuard><AdminAssinaturas /></AdminGuard>} />
-              <Route path="/admin/pagamentos" element={<AdminGuard><AdminPagamentos /></AdminGuard>} />
-              <Route path="/admin/notificacoes" element={<AdminGuard><AdminNotificacoes /></AdminGuard>} />
-              <Route path="/admin/logs" element={<AdminGuard><AdminLogs /></AdminGuard>} />
-              <Route path="/admin/planos" element={<AdminGuard><AdminPlanos /></AdminGuard>} />
-              <Route path="/admin/mercadopago" element={<AdminGuard><AdminMercadoPago /></AdminGuard>} />
-              <Route path="/admin/funcionalidades" element={<AdminGuard><AdminFuncionalidades /></AdminGuard>} />
-            </Route>
+              <Route element={<AppLayout />}>
+                <Route path="/diagnostico" element={<Diagnostico />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/aulas" element={<Aulas />} />
+                <Route path="/redacoes" element={<Redacoes />} />
+                <Route path="/questoes" element={<Questoes />} />
+                <Route path="/simulados" element={<Simulados />} />
+                <Route path="/ia" element={<IAChat />} />
+                <Route path="/plano" element={<PlanoEstudos />} />
+                <Route path="/revisoes" element={<Revisoes />} />
+                <Route path="/ranking" element={<Ranking />} />
+                <Route path="/conquistas" element={<Conquistas />} />
+                <Route path="/caderno-erros" element={<CadernoErros />} />
+                <Route path="/relatorio" element={<RelatorioMateria />} />
+                <Route path="/assinatura" element={<Assinatura />} />
+                <Route path="/perfil" element={<Perfil />} />
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+                <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
+                <Route path="/admin/usuarios" element={<AdminGuard><AdminUsuarios /></AdminGuard>} />
+                <Route path="/admin/conteudo" element={<AdminGuard><AdminConteudo /></AdminGuard>} />
+                <Route path="/admin/questoes" element={<AdminGuard><AdminQuestoes /></AdminGuard>} />
+                <Route path="/admin/redacoes" element={<AdminGuard><AdminRedacoes /></AdminGuard>} />
+                <Route path="/admin/ia" element={<AdminGuard><AdminIA /></AdminGuard>} />
+                <Route path="/admin/assinaturas" element={<AdminGuard><AdminAssinaturas /></AdminGuard>} />
+                <Route path="/admin/pagamentos" element={<AdminGuard><AdminPagamentos /></AdminGuard>} />
+                <Route path="/admin/notificacoes" element={<AdminGuard><AdminNotificacoes /></AdminGuard>} />
+                <Route path="/admin/logs" element={<AdminGuard><AdminLogs /></AdminGuard>} />
+                <Route path="/admin/planos" element={<AdminGuard><AdminPlanos /></AdminGuard>} />
+                <Route path="/admin/mercadopago" element={<AdminGuard><AdminMercadoPago /></AdminGuard>} />
+                <Route path="/admin/funcionalidades" element={<AdminGuard><AdminFuncionalidades /></AdminGuard>} />
+
+                {/* Teacher Routes */}
+                <Route path="/teacher" element={<TeacherGuard><TeacherDashboard /></TeacherGuard>} />
+                <Route path="/teacher/redacoes" element={<TeacherGuard><TeacherRedacoes /></TeacherGuard>} />
+                <Route path="/teacher/redacoes/:id" element={<TeacherGuard><TeacherCorrection /></TeacherGuard>} />
+                <Route path="/teacher/alunos" element={<TeacherGuard><TeacherAlunos /></TeacherGuard>} />
+              </Route>
+
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
